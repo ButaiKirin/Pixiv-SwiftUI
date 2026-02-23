@@ -75,6 +75,7 @@
                         <button onclick="jumpToFirstUnreviewed()">定位到第一个未审核</button>
                         <button onclick="prevUnreviewed()">上一个未审核</button>
                         <button onclick="nextUnreviewed()">下一个未审核</button>
+                        <button onclick="nextUnreviewedSkipWestern()">下一个未审核（跳过欧美）</button>
                     </div>
                 </div>
             </div>
@@ -230,6 +231,23 @@
             }
         }
 
+        async function nextUnreviewedSkipWestern() {
+            try {
+                const response = await fetch(`/api/tag/next-unreviewed-skip-western?current_tag_name=${encodeURIComponent(currentTagName)}&language=${currentLanguage}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentIndex = data.index;
+                    currentTagName = data.name;
+                    updateUI(data);
+                } else {
+                    alert('没有更多未审核的标签了');
+                }
+            } catch (error) {
+                console.error('获取下一个未审核标签（跳过欧美）失败:', error);
+            }
+        }
+
         async function prevUnreviewed() {
             try {
                 const response = await fetch(`/api/tag/prev-unreviewed?current_tag_name=${encodeURIComponent(currentTagName)}&language=${currentLanguage}`);
@@ -366,7 +384,10 @@
                 }
             }
             if (e.key === 'ArrowRight' && !e.target.matches('textarea')) {
-                if (e.altKey) {
+                if (e.altKey && e.shiftKey) {
+                    e.preventDefault();
+                    nextUnreviewedSkipWestern();
+                } else if (e.altKey) {
                     e.preventDefault();
                     nextUnreviewed();
                 } else {

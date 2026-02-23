@@ -120,6 +120,23 @@ async def get_next_unreviewed(current_tag_name: str, language: str = "chinese"):
     return JSONResponse(content={"index": index, **tag.to_dict()})
 
 
+@app.get("/api/tag/next-unreviewed-skip-western")
+async def get_next_unreviewed_skip_western(
+    current_tag_name: str, language: str = "chinese"
+):
+    """获取下一个未审核标签，跳过欧美 tag"""
+    if language not in ["chinese", "english"]:
+        language = "chinese"
+
+    tag = storage.get_next_unreviewed_skip_western(current_tag_name, language)
+
+    if not tag:
+        raise HTTPException(status_code=404, detail="No more unreviewed tags")
+
+    index = storage.get_tag_index(tag.name, language)
+    return JSONResponse(content={"index": index, **tag.to_dict()})
+
+
 @app.get("/api/tag/prev-unreviewed")
 async def get_prev_unreviewed(current_tag_name: str, language: str = "chinese"):
     """获取上一个未审核标签"""

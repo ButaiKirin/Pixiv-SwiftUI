@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import logging
+import re
 from contextlib import contextmanager
 from typing import List, Optional, Tuple
 from .models import PixivTag
@@ -578,3 +579,59 @@ class SQLiteStorage:
             cursor = conn.execute(query, params)
             conn.commit()
             return cursor.rowcount > 0
+
+    def _is_western_tag(self, name: str) -> bool:
+        """判断是否为欧美 tag（完全由英文字母和数字组成）"""
+        return bool(re.match(r"^[a-zA-Z0-9]+$", name))
+
+    def get_next_unreviewed_skip_western(
+        self, current_tag_name: str, language: str = "chinese"
+    ) -> Optional[PixivTag]:
+        """获取下一个未审核标签，跳过欧美 tag（循环查找）"""
+        self.init()
+        reviewed_column = f"{language}_reviewed"
+
+        with self._get_connection() as conn:
+            all_unreviewed = conn.execute(
+                f"""
+                SELECT * FROM pixiv_tags
+                WHERE {reviewed_column} = 0
+                ORDER BY frequency DESC, name ASC
+                """
+            ).fetchall()
+
+            if not all_unreviewed:
+                return None
+
+            current_index = -1
+            for i, row in enumerate(all_unreviewed):
+                if row["name"] == current_tag_name:
+                    current_index = i
+                    break
+
+            search_order = list(range(current_index + 1, len(all_unreviewed))) + list(
+                range(0, current_index + 1)
+            )
+
+            for i in search_order:
+                row = all_unreviewed[i]
+                if not self._is_western_tag(row["name"]):
+                    return PixivTag(
+                        name=row["name"],
+                        official_translation=row["official_translation"],
+                        chinese_translation=row["chinese_translation"],
+                        english_translation=row["english_translation"],
+                        frequency=row["frequency"],
+                        chinese_reviewed=bool(
+                            row["chinese_reviewed"]
+                            if "chinese_reviewed" in row.keys()
+                            else 0
+                        ),
+                        english_reviewed=bool(
+                            row["english_reviewed"]
+                            if "english_reviewed" in row.keys()
+                            else 0
+                        ),
+                    )
+
+            return None
