@@ -1,5 +1,5 @@
 {
-  "originHash" : "dc47db0c9a188e6b855f7a79bba68ea11fd39e58622341ed7e7b66fd5ed252e8",
+  "originHash" : "fb13ec786aa4551b2b2b0ef9f14be70e7fb155129884d2ae3b7127f29290fb22",
   "pins" : [
     {
       "identity" : "gzipswift",
@@ -20,12 +20,39 @@
       }
     },
     {
+      "identity" : "lrucache",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nicklockwood/LRUCache.git",
+      "state" : {
+        "revision" : "cb5b2bd0da83ad29c0bec762d39f41c8ad0eaf3e",
+        "version" : "1.2.1"
+      }
+    },
+    {
+      "identity" : "swift-atomics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-atomics.git",
+      "state" : {
+        "revision" : "b601256eab081c0f92f059e12818ac1d4f178ff7",
+        "version" : "1.3.0"
+      }
+    },
+    {
       "identity" : "swiftlintplugins",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SimplyDanny/SwiftLintPlugins",
       "state" : {
         "revision" : "c099f18417c53548134830b11669b96ed9801971",
         "version" : "0.63.1"
+      }
+    },
+    {
+      "identity" : "swiftsoup",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/scinfu/SwiftSoup.git",
+      "state" : {
+        "revision" : "d86f244ed497d48012782e2f59c985a55e77b3f5",
+        "version" : "2.11.3"
       }
     },
     {
