@@ -14,10 +14,10 @@ final class SearchSuggestionManager {
     ///   - query: 搜索关键词
     ///   - limit: 最大返回数量
     /// - Returns: 合并后的搜索建议
-    func fetchSuggestions(query: String, limit: Int = 20) async -> [UnifiedSearchSuggestion] {
+    func fetchSuggestions(query: String, limit: Int = 30) async -> [UnifiedSearchSuggestion] {
         guard !query.isEmpty else { return [] }
 
-        let localResults = tagTranslationService.searchTags(query: query, limit: limit)
+        let localResults = tagTranslationService.searchTags(query: query)
 
         var officialResults: [UnifiedSearchSuggestion] = []
         do {
@@ -81,12 +81,29 @@ final class SearchSuggestionManager {
     }
 
     /// 计算排序优先级（数值越小优先级越高）
+    /// - 精确匹配 = 0, 1
+    /// - 前缀匹配 = 2, 3
+    /// - 官方 API = 4
+    /// - 包含匹配 = 5, 6
     private func sortPriority(for suggestion: UnifiedSearchSuggestion) -> Int {
         switch suggestion.source {
         case .localTranslation(let matchType):
-            return matchType.rawValue
+            switch matchType {
+            case .exactName:
+                return 0
+            case .exactTranslation:
+                return 1
+            case .prefixName:
+                return 2
+            case .prefixTranslation:
+                return 3
+            case .containsName:
+                return 5
+            case .containsTranslation:
+                return 6
+            }
         case .officialAPI:
-            return 100
+            return 4
         }
     }
 }

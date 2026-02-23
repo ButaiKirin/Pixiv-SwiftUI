@@ -109,7 +109,9 @@ final class TagTranslationService {
         guard !query.isEmpty else { return [] }
 
         let lowercasedQuery = query.lowercased()
-        var results: [UnifiedSearchSuggestion] = []
+        var exactMatches: [UnifiedSearchSuggestion] = []
+        var prefixMatches: [UnifiedSearchSuggestion] = []
+        var containsMatches: [UnifiedSearchSuggestion] = []
         var seenTags = Set<String>()
 
         for (tagName, translation) in translations {
@@ -120,10 +122,10 @@ final class TagTranslationService {
 
             if lowercasedTagName == lowercasedQuery {
                 matchType = .exactName
-            } else if lowercasedTagName.hasPrefix(lowercasedQuery) {
-                matchType = .prefixName
             } else if lowercasedTranslation == lowercasedQuery {
                 matchType = .exactTranslation
+            } else if lowercasedTagName.hasPrefix(lowercasedQuery) {
+                matchType = .prefixName
             } else if lowercasedTranslation.hasPrefix(lowercasedQuery) {
                 matchType = .prefixTranslation
             } else if lowercasedTagName.contains(lowercasedQuery) {
@@ -132,27 +134,37 @@ final class TagTranslationService {
                 matchType = .containsTranslation
             }
 
-            if let type = matchType, !seenTags.contains(tagName) {
-                seenTags.insert(tagName)
-                let suggestion = UnifiedSearchSuggestion(
-                    tagName: tagName,
-                    displayTranslation: translation,
-                    source: .localTranslation(matchType: type)
-                )
-                results.append(suggestion)
+            guard let type = matchType, !seenTags.contains(tagName) else { continue }
+            seenTags.insert(tagName)
+
+            let suggestion = UnifiedSearchSuggestion(
+                tagName: tagName,
+                displayTranslation: translation,
+                source: .localTranslation(matchType: type)
+            )
+
+            switch type {
+            case .exactName, .exactTranslation:
+                exactMatches.append(suggestion)
+            case .prefixName, .prefixTranslation:
+                prefixMatches.append(suggestion)
+            case .containsName, .containsTranslation:
+                containsMatches.append(suggestion)
             }
         }
 
-        results.sort { suggestion1, suggestion2 in
-            guard let type1 = suggestion1.matchType, let type2 = suggestion2.matchType else {
-                return false
-            }
-            return type1.rawValue < type2.rawValue
-        }
+        exactMatches.sort { $0.tagName.count < $1.tagName.count }
+        prefixMatches.sort { $0.tagName.count < $1.tagName.count }
+        containsMatches.sort { $0.tagName.count < $1.tagName.count }
 
-        if results.count > limit {
-            results = Array(results.prefix(limit))
-        }
+        let maxExact = 4
+        let maxPrefix = 6
+        let maxContains = 4
+
+        var results: [UnifiedSearchSuggestion] = []
+        results.append(contentsOf: Array(exactMatches.prefix(maxExact)))
+        results.append(contentsOf: Array(prefixMatches.prefix(maxPrefix)))
+        results.append(contentsOf: Array(containsMatches.prefix(maxContains)))
 
         return results
     }
