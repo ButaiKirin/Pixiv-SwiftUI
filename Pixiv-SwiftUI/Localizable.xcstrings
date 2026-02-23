@@ -744,34 +744,34 @@
         }
       }
     },
-    "theme.lavender" : {
+    "theme.violet" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lavender"
+            "value" : "Violet"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "薰衣草"
+            "value" : "紫罗兰"
           }
         }
       }
     },
-    "theme.mintGreen" : {
+    "theme.grassGreen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mint Green"
+            "value" : "Grass Green"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "薄荷绿"
+            "value" : "青草绿"
           }
         }
       }
@@ -808,22 +808,7 @@
         }
       }
     },
-    "theme.skyBlue" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sky Blue"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "天空蓝"
-          }
-        }
-      }
-    },
+
     "theme.sunnyYellow" : {
       "localizations" : {
         "en" : {

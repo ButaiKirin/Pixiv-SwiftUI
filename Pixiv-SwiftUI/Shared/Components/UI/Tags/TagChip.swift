@@ -47,7 +47,7 @@ struct TagChip: View {
                     Text(name)
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(themeManager.currentColor.opacity(colorScheme == .dark ? 0.9 : 0.8))
+                        .foregroundColor(themeManager.currentColor.opacity(colorScheme == .dark ? 0.95 : 0.85))
                         .lineLimit(1)
                         .layoutPriority(1)
 
@@ -62,13 +62,13 @@ struct TagChip: View {
                 Text(name)
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundColor(themeManager.currentColor.opacity(colorScheme == .dark ? 0.9 : 0.8))
+                    .foregroundColor(themeManager.currentColor.opacity(colorScheme == .dark ? 0.95 : 0.85))
                     .lineLimit(1)
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(themeManager.currentColor.opacity(colorScheme == .dark ? 0.15 : 0.1))
+        .background(themeManager.currentColor.opacity(colorScheme == .dark ? 0.2 : 0.12))
         .cornerRadius(12)
     }
 }
