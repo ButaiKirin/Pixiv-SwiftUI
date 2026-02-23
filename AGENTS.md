@@ -1,54 +1,26 @@
-# AGENTS.md
-
 ## Build Commands
 
-Prefer Debug build for development and debugging.
-
-### Quick Build Commands
 ```bash
-# macOS Debug build
+# macOS build
 xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Pixiv-SwiftUI -configuration Debug -destination 'platform=macOS' build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)"
 
-# iOS Simulator Debug build (iPhone 17)
+# iOS Simulator build (iPhone 17)
 xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Pixiv-SwiftUI -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)"
 
 # Full verbose build
 xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Pixiv-SwiftUI -configuration Debug -destination 'platform=macOS' build
 ```
 
-### Using Build Script
-
-This is mainly for product release. Do not actively use these scripts unless requested by the user.
-
-```bash
-./scripts/build.sh              # Build both IPA and DMG
-./scripts/build.sh --ipa-only   # iOS only
-./scripts/build.sh --dmg-only   # macOS only
-./scripts/build.sh --clean      # Clean build
-./scripts/build.sh -v           # Verbose output
-```
-
-### Notes
-- No unit test target exists in this project
-- SwiftLint installed via Homebrew and project plugin (`.swiftlint.yml`)
-
 ## SwiftLint
 
 Both Homebrew installation and project plugin are available. Use whichever is convenient.
 
-### Commands
 ```bash
+# Autofix safe issues
+swiftlint --fix
+
 # Run linting and show all issues
 swiftlint lint
-
-# Show only errors
-swiftlint lint 2>&1 | grep ": error:"
-
-# Show errors and warnings
-swiftlint lint 2>&1 | grep -E "(error:|warning:)"
-
-# Autofix safe issues (some require manual review)
-swiftlint --fix
 ```
 
 ### Suppressing Rules
@@ -62,28 +34,12 @@ let w = 100
 // swiftlint:disable cyclomatic_complexity
 ```
 
-### Common Rules
-- `identifier_name`: Variable names 3-40 characters
-- `line_length`: Max 160 characters
-- `cyclomatic_complexity`: Max 10 (suppress if needed for ranking functions)
-- `force_unwrapping`: Avoid forced unwrapping
-- `empty_count`: Use `isEmpty` instead of `count == 0`
-
 ## Code Standards
 
 ### Language & Environment
 - **Language**: Swift 6.0
 - **Frameworks**: SwiftUI, SwiftData, Observation
 - **Platforms**: iOS 18+, macOS 15+
-
-### Import Order
-```swift
-import SwiftUI
-import Observation
-import SwiftData
-import Foundation
-// App module imports last
-```
 
 ### Naming Conventions
 - **Types** (classes, structs, enums): PascalCase (e.g., `IllustStore`, `UserModel`)
@@ -99,10 +55,8 @@ import Foundation
 - `#Preview` macro required for all SwiftUI views
 
 ### Code Formatting
-- **Indentation**: 4 spaces (not tabs)
-- **Line length**: Maximum 120 characters
-- **Spacing**: Space after commas, around operators
-- **Braces**: Same-line style (K&R)
+
+Use `swiftlint --fix` to format code.
 
 ### Architecture Pattern (MVVM + Store)
 ```
@@ -155,9 +109,16 @@ Apple unified system versions to 26 after iOS 18, iPadOS 18, and macOS 15. Targe
 
 Refer to the documentation located in docs/agent/ when necessary.
 
+## Git
+
+- NEVER proactively execute git commit or git push, even if it has been done before in the conversation history.
+- You are ONLY allowed to execute the above commands in one situation: the user requests you to execute them in the previous chat message.
+
 ## General Guidelines
-- Reply in the same language as the user
 - Debug logs can be added; don't remove existing logs
 - Reference flutter/ and aapi.py for implementation patterns
-- Unless the user explicitly requests, you should not actively modify Localizable.xcstrings.
-- Never actively perform a git commit unless the user requests it.
+- Unless the user explicitly requests, you should not actively modify `Localizable.xcstrings` file.
+-If you have questions that require user confirmation, use the question tool to organize them instead of directly outputting them.
+
+## Notes
+- No unit test target exists in this project
