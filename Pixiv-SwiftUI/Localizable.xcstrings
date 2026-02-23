@@ -2880,17 +2880,6 @@
         }
       }
     },
-    "已收藏" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Liked"
-          }
-        }
-      }
-    },
     "已暂停" : {
       "localizations" : {
         "en" : {
@@ -3282,9 +3271,6 @@
           }
         }
       }
-    },
-    "搜索: %@" : {
-
     },
     "搜索历史" : {
       "localizations" : {
@@ -5506,23 +5492,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Configure download options"
-          }
-        }
-      }
-    },
-    "设置如何显示 R18 和 AI 生成的内容" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Configure how to display R18 and AI-generated content"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置如何显示 R18 和 AI 生成的内容"
           }
         }
       }

@@ -11,6 +11,7 @@ struct RecommendView: View {
     @State private var recommendedUsers: [UserPreviews] = []
     @State private var isLoadingRecommended = false
     @State private var hasCachedUsers = false
+    @State private var isInitialLoadInProgress = false
 
     @State private var contentType: TypeFilterButton.ContentType = .illust
 
@@ -190,7 +191,11 @@ struct RecommendView: View {
                 loadCachedUsers()
 
                 if illusts.isEmpty {
+                    guard !isInitialLoadInProgress else { return }
+                    isInitialLoadInProgress = true
                     Task {
+                        defer { isInitialLoadInProgress = false }
+
                         if isLoggedIn {
                             _ = await (loadRecommendedUsersAsync(), refreshIllusts(forceRefresh: false))
                         } else {
