@@ -32,6 +32,9 @@ struct SpotlightListView: View {
                         onSelect: { query in
                             searchText = query
                             isSearchEditing = false
+                            #if os(macOS)
+                            // On macOS, the focus from searchable is not manually controlled here
+                            #endif
                             Task {
                                 await store.search(query)
                             }
@@ -52,6 +55,28 @@ struct SpotlightListView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(store.source.isSearch ? .inline : .automatic)
         #endif
+        #if os(macOS)
+        .searchable(text: $searchText, placement: .toolbar, prompt: String(localized: "搜索特辑")) {
+            if !store.searchHistory.isEmpty {
+                ForEach(store.searchHistory, id: \.self) { query in
+                    Label(query, systemImage: "clock.arrow.circlepath")
+                        .searchCompletion(query)
+                }
+            }
+        }
+        .onSubmit(of: .search) {
+            Task {
+                await store.search(searchText)
+            }
+        }
+        .onChange(of: searchText) { _, newValue in
+            if newValue.isEmpty {
+                Task {
+                    await store.clearSearch()
+                }
+            }
+        }
+        #endif
         .task {
             if store.articles.isEmpty {
                 await store.fetch()
@@ -67,6 +92,7 @@ struct SpotlightListView: View {
 
     private var searchSection: some View {
         VStack(spacing: 0) {
+            #if os(iOS)
             SpotlightSearchBar(
                 text: $searchText,
                 isEditing: $isSearchEditing,
@@ -85,6 +111,7 @@ struct SpotlightListView: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, isSearchEditing ? 0 : 12)
+            #endif
 
             if store.source.isSearch {
                 HStack {
@@ -103,7 +130,6 @@ struct SpotlightListView: View {
                 .padding(.bottom, 12)
             }
         }
-        .background(Color.primary.opacity(0.03))
     }
 
     private var articleGrid: some View {
