@@ -231,6 +231,11 @@ class SQLiteStorage:
             conn.commit()
             return cursor.rowcount > 0
 
+    def _escape_fts5_query(self, keyword: str) -> str:
+        """转义 FTS5 特殊字符"""
+        escaped = keyword.replace('"', '""')
+        return f'"{escaped}"'
+
     def search_by_keyword(self, keyword: str, limit: int = 50) -> List[PixivTag]:
         """使用 FTS5 全文搜索标签（前缀匹配，结合 frequency 排序）"""
         if not keyword.strip():
@@ -238,6 +243,7 @@ class SQLiteStorage:
 
         self.init()
         with self._get_connection() as conn:
+            fts_query = self._escape_fts5_query(keyword) + "*"
             cursor = conn.execute(
                 f"""
                 SELECT t.* FROM pixiv_tags t
@@ -246,7 +252,7 @@ class SQLiteStorage:
                 ORDER BY t.frequency DESC, rank
                 LIMIT ?
                 """,
-                (f"{keyword}*", limit),
+                (fts_query, limit),
             )
             return [self._row_to_tag(row) for row in cursor.fetchall()]
 
