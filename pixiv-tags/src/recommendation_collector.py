@@ -112,6 +112,8 @@ class RecommendationBasedCollector:
         for tag_data in illust_tags:
             tag_name = tag_data.get("name")
             if tag_name:
+                if PixivTag.should_skip(tag_name):
+                    continue
                 tag = PixivTag(
                     name=tag_name, official_translation=tag_data.get("translated_name")
                 )
@@ -146,6 +148,9 @@ class RecommendationBasedCollector:
             for tag_data in illust_tags:
                 tag_name = tag_data.get("name")
                 if not tag_name:
+                    continue
+
+                if PixivTag.should_skip(tag_name):
                     continue
 
                 if not self.storage.is_tag_in_memory(tag_name):

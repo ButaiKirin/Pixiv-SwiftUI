@@ -22,9 +22,9 @@ import sys
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from tqdm import tqdm
-
 from src.llm_api import LLMClient
+from src.models import PixivTag
+from tqdm import tqdm
 
 load_dotenv()
 
@@ -146,7 +146,11 @@ class TagTranslator:
             return None
 
     def translate_all(self):
-        tags = self.get_tags_needing_translation()
+        tags = [
+            tag
+            for tag in self.get_tags_needing_translation()
+            if not PixivTag.should_skip(tag["name"])
+        ]
         total_tags = len(tags)
 
         if total_tags == 0:
@@ -189,7 +193,11 @@ class TagTranslator:
         )
 
     async def translate_all_async(self, concurrency: int = 20):
-        tags = self.get_tags_needing_translation()
+        tags = [
+            tag
+            for tag in self.get_tags_needing_translation()
+            if not PixivTag.should_skip(tag["name"])
+        ]
         total_tags = len(tags)
 
         if total_tags == 0:

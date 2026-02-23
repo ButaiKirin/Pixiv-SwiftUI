@@ -1,9 +1,10 @@
-import sqlite3
-import os
 import logging
+import os
 import re
+import sqlite3
 from contextlib import contextmanager
 from typing import List, Optional, Tuple
+
 from .models import PixivTag
 
 logger = logging.getLogger(__name__)
@@ -11,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 class SQLiteStorage:
     """SQLite 标签存储管理（同步实现）"""
+
+    _SKIP_CONDITION = "name NOT GLOB '*[0-9]users入り'"
 
     def __init__(self, db_path: str = "data/pixiv_tags.db"):
         self.db_path = db_path
@@ -60,6 +63,9 @@ class SQLiteStorage:
 
     def upsert_tag(self, tag: PixivTag) -> bool:
         """插入或更新标签（频率累加）"""
+        if PixivTag.should_skip(tag.name):
+            return False
+
         self.init()
         with self._get_connection() as conn:
             conn.execute(
@@ -84,6 +90,11 @@ class SQLiteStorage:
 
     def upsert_tags_batch(self, tags: List[PixivTag]) -> int:
         """批量插入或更新（频率累加）"""
+        # 过滤掉特殊的 tag
+        tags = [tag for tag in tags if not PixivTag.should_skip(tag.name)]
+        if not tags:
+            return 0
+
         self.init()
         with self._get_connection() as conn:
             for tag in tags:
@@ -109,6 +120,8 @@ class SQLiteStorage:
 
     def insert_new_tags_only(self, tags: List[PixivTag]) -> int:
         """只插入不存在的标签（IGNORE），返回实际插入的数量"""
+        # 过滤掉特殊的 tag
+        tags = [tag for tag in tags if not PixivTag.should_skip(tag.name)]
         if not tags:
             return 0
 
@@ -183,7 +196,9 @@ class SQLiteStorage:
         """获取全部标签"""
         self.init()
         with self._get_connection() as conn:
-            cursor = conn.execute("SELECT * FROM pixiv_tags ORDER BY frequency DESC")
+            cursor = conn.execute(
+                f"SELECT * FROM pixiv_tags WHERE {self._SKIP_CONDITION} ORDER BY frequency DESC"
+            )
             return [
                 PixivTag(
                     name=row["name"],
@@ -316,7 +331,7 @@ class SQLiteStorage:
             cursor = conn.execute(
                 f"""
                 SELECT * FROM pixiv_tags
-                WHERE {reviewed_column} = 0
+                WHERE {reviewed_column} = 0 AND {self._SKIP_CONDITION}
                 ORDER BY frequency DESC
                 LIMIT ? OFFSET ?
                 """,
@@ -350,8 +365,9 @@ class SQLiteStorage:
         self.init()
         with self._get_connection() as conn:
             cursor = conn.execute(
-                """
+                f"""
                 SELECT * FROM pixiv_tags
+                WHERE {self._SKIP_CONDITION}
                 ORDER BY frequency DESC, name ASC
                 LIMIT 1 OFFSET ?
                 """,
@@ -393,7 +409,7 @@ class SQLiteStorage:
                      AND name > ?)
                     OR frequency < (SELECT frequency FROM pixiv_tags WHERE name = ?)
                 )
-                AND {reviewed_column} = 0
+                AND {reviewed_column} = 0 AND {self._SKIP_CONDITION}
                 ORDER BY frequency DESC, name ASC
                 LIMIT 1
                 """,
@@ -434,7 +450,7 @@ class SQLiteStorage:
                     (frequency = (SELECT frequency FROM pixiv_tags WHERE name = ?)
                      AND name < ?
                      AND {reviewed_column} = 0)
-                )
+                ) AND {self._SKIP_CONDITION}
                 ORDER BY name DESC
                 LIMIT 1
                 """,
@@ -463,7 +479,7 @@ class SQLiteStorage:
                 f"""
                 SELECT * FROM pixiv_tags
                 WHERE frequency > (SELECT frequency FROM pixiv_tags WHERE name = ?)
-                AND {reviewed_column} = 0
+                AND {reviewed_column} = 0 AND {self._SKIP_CONDITION}
                 ORDER BY frequency ASC, name DESC
                 LIMIT 1
                 """,
@@ -498,7 +514,7 @@ class SQLiteStorage:
             cursor = conn.execute(
                 f"""
                 SELECT * FROM pixiv_tags
-                WHERE {reviewed_column} = 0
+                WHERE {reviewed_column} = 0 AND {self._SKIP_CONDITION}
                 ORDER BY frequency DESC, name ASC
                 LIMIT 1
                 """
@@ -508,9 +524,10 @@ class SQLiteStorage:
                 frequency = row["frequency"]
                 name = row["name"]
                 cursor2 = conn.execute(
-                    """
+                    f"""
                     SELECT COUNT(*) FROM pixiv_tags
-                    WHERE (frequency > ?) OR (frequency = ? AND name < ?)
+                    WHERE ((frequency > ?) OR (frequency = ? AND name < ?))
+                    AND {self._SKIP_CONDITION}
                     """,
                     (frequency, frequency, name),
                 )
@@ -530,6 +547,7 @@ class SQLiteStorage:
                     SUM(CASE WHEN {reviewed_column} = 1 THEN 1 ELSE 0 END) as reviewed,
                     SUM(CASE WHEN {reviewed_column} = 0 THEN 1 ELSE 0 END) as pending
                 FROM pixiv_tags
+                WHERE {self._SKIP_CONDITION}
                 """
             )
             row = cursor.fetchone()

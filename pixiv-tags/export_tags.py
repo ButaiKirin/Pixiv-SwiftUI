@@ -54,6 +54,7 @@ class TagExporter:
                 WHERE chinese_translation IS NOT NULL
                   AND chinese_translation != ''
                   AND chinese_reviewed = 1
+                  AND name NOT GLOB '*[0-9]users入り'
                 ORDER BY frequency DESC
                 """
             )

@@ -10,11 +10,13 @@ Pixiv 标签翻译查询脚本
 """
 
 import logging
-import sys
 import os
-from src.api.client import NetworkClient
+import sys
+
 from src.api.auth import AuthAPI
+from src.api.client import NetworkClient
 from src.api.search import SearchAPI
+from src.models import PixivTag
 
 # 配置日志
 logging.basicConfig(
@@ -71,6 +73,18 @@ def main():
 
             if not tags_data:
                 print(f"❌ 没有找到 '{word}' 相关的标签")
+                print("-" * 40)
+                continue
+
+            # 过滤掉特殊的 tag（如 100users入り）
+            tags_data = [
+                tag
+                for tag in tags_data
+                if not PixivTag.should_skip(tag.get("name", ""))
+            ]
+
+            if not tags_data:
+                print(f"❌ 过滤后没有找到 '{word}' 相关的有效标签")
                 print("-" * 40)
                 continue
 

@@ -1,5 +1,6 @@
+import re
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List, Optional
 
 
 @dataclass
@@ -13,6 +14,14 @@ class PixivTag:
     frequency: int = 0  # 标签出现频率
     chinese_reviewed: bool = False  # 中文翻译是否已审核
     english_reviewed: bool = False  # 英文翻译是否已审核
+
+    @staticmethod
+    def should_skip(tag_name: str) -> bool:
+        """检查标签是否应该跳过（例如：100users入り）"""
+        if not tag_name:
+            return False
+        # 匹配以 [数字]users入り 结尾的标签
+        return bool(re.search(r"\d+users入り$", tag_name))
 
     @classmethod
     def from_api_response(cls, tag_data: dict) -> "PixivTag":
