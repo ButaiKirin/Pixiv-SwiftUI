@@ -3,6 +3,13 @@ import SwiftSoup
 
 final class SpotlightAPI {
     private let client = NetworkClient.shared
+    private let baseUrl = "https://www.pixivision.net"
+
+    struct ArticleListResult {
+        let articles: [SpotlightArticle]
+        let currentPage: Int
+        let hasNextPage: Bool
+    }
 
     func getSpotlightArticles(category: String = "all") async throws -> (articles: [SpotlightArticle], nextUrl: String?) {
         var components = URLComponents(string: APIEndpoint.baseURL + "/v1/spotlight/articles")
@@ -36,6 +43,143 @@ final class SpotlightAPI {
         )
 
         return (response.spotlightArticles, response.nextUrl)
+    }
+
+    func getCategoryArticles(category: SpotlightCategory, page: Int = 1) async throws -> ArticleListResult {
+        let urlString: String
+        if page == 1 {
+            urlString = "\(baseUrl)\(category.urlPath)"
+        } else {
+            urlString = "\(baseUrl)\(category.urlPath)/?p=\(page)"
+        }
+        let html = try await fetchHTML(url: urlString)
+        return try parseArticleListHTML(html, page: page)
+    }
+
+    func searchArticles(query: String, page: Int = 1) async throws -> ArticleListResult {
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw NetworkError.invalidResponse
+        }
+        let urlString: String
+        if page == 1 {
+            urlString = "\(baseUrl)/zh/s/?q=\(encodedQuery)"
+        } else {
+            urlString = "\(baseUrl)/zh/s/?q=\(encodedQuery)&p=\(page)"
+        }
+        let html = try await fetchHTML(url: urlString)
+        return try parseArticleListHTML(html, page: page)
+    }
+
+    private func parseArticleListHTML(_ html: String, page: Int) throws -> ArticleListResult {
+        let doc = try SwiftSoup.parse(html)
+        var articles: [SpotlightArticle] = []
+
+        let articleCards = try doc.select("ul.main-column-container > li.article-card-container")
+
+        for card in articleCards {
+            do {
+                guard let article = try parseArticleCard(card) else { continue }
+                articles.append(article)
+            } catch {
+                continue
+            }
+        }
+
+        let hasNextPage = try checkHasNextPage(doc: doc)
+
+        return ArticleListResult(
+            articles: articles,
+            currentPage: page,
+            hasNextPage: hasNextPage
+        )
+    }
+
+    private func parseArticleCard(_ card: Element) throws -> SpotlightArticle? {
+        guard let titleLink = try card.select(".arc__title a").first(),
+              let href = try titleLink.attr("href").nilIfEmpty,
+              let title = try titleLink.text().nilIfEmpty else {
+            return nil
+        }
+
+        let articleId: Int
+        if let lastComponent = href.split(separator: "/").last,
+           let id = Int(lastComponent) {
+            articleId = id
+        } else {
+            return nil
+        }
+
+        let thumbnail: String
+        if let thumbDiv = try card.select("._thumbnail").first(),
+           let style = try thumbDiv.attr("style").nilIfEmpty {
+            thumbnail = extractBackgroundImageUrl(from: style) ?? ""
+        } else {
+            thumbnail = ""
+        }
+
+        if thumbnail.isEmpty {
+            return nil
+        }
+
+        let articleUrl = href.hasPrefix("http") ? href : baseUrl + href
+
+        let category: String
+        if let categoryLabel = try card.select(".arc__thumbnail-label").first() {
+            category = try categoryLabel.text()
+        } else {
+            category = ""
+        }
+
+        let tags = try card.select(".tls__list-item").compactMap { try $0.text().nilIfEmpty }
+
+        let publishDate: Date
+        if let timeElement = try card.select("time._date").first(),
+           let datetime = try timeElement.attr("datetime").nilIfEmpty {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            publishDate = formatter.date(from: datetime) ?? Date()
+        } else {
+            publishDate = Date()
+        }
+
+        let pureTitle = title
+            .replacingOccurrences(of: "^#\\S+\\s*", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+
+        return SpotlightArticle(
+            id: articleId,
+            title: title,
+            pureTitle: pureTitle.isEmpty ? title : pureTitle,
+            thumbnail: thumbnail,
+            articleUrl: articleUrl,
+            publishDate: publishDate,
+            tags: tags,
+            category: category
+        )
+    }
+
+    private func extractBackgroundImageUrl(from style: String) -> String? {
+        let pattern = #"background-image:\s*url\(['"]?([^'")\s]+)['"]?\)"#
+        guard let range = style.range(of: pattern, options: .regularExpression) else {
+            return nil
+        }
+        let urlMatch = style[range]
+        guard let startIndex = urlMatch.firstIndex(of: "("),
+              let endIndex = urlMatch.lastIndex(of: ")") else {
+            return nil
+        }
+        let urlStart = urlMatch.index(after: startIndex)
+        return String(urlMatch[urlStart..<endIndex])
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "\"", with: "")
+    }
+
+    private func checkHasNextPage(doc: Document) throws -> Bool {
+        if let nextLink = try doc.select("._pager a.next").first() {
+            let href = try nextLink.attr("href")
+            return !href.isEmpty
+        }
+        return false
     }
 
     func fetchArticleDetail(url: String, languageCode: Int = 0) async throws -> SpotlightArticleDetail {

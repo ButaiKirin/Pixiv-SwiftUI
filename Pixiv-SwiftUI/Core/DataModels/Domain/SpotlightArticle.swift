@@ -7,6 +7,8 @@ struct SpotlightArticle: Identifiable, Codable, Hashable {
     let thumbnail: String
     let articleUrl: String
     let publishDate: Date
+    let tags: [String]
+    let category: String
 
     var displayTitle: String {
         if pureTitle.hasSuffix(" -") {
@@ -22,6 +24,52 @@ struct SpotlightArticle: Identifiable, Codable, Hashable {
         case thumbnail
         case articleUrl = "article_url"
         case publishDate = "publish_date"
+        case tags
+        case category
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        pureTitle = try container.decode(String.self, forKey: .pureTitle)
+        thumbnail = try container.decode(String.self, forKey: .thumbnail)
+        articleUrl = try container.decode(String.self, forKey: .articleUrl)
+        publishDate = try container.decode(Date.self, forKey: .publishDate)
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        category = try container.decodeIfPresent(String.self, forKey: .category) ?? ""
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(pureTitle, forKey: .pureTitle)
+        try container.encode(thumbnail, forKey: .thumbnail)
+        try container.encode(articleUrl, forKey: .articleUrl)
+        try container.encode(publishDate, forKey: .publishDate)
+        try container.encode(tags, forKey: .tags)
+        try container.encode(category, forKey: .category)
+    }
+
+    init(
+        id: Int,
+        title: String,
+        pureTitle: String,
+        thumbnail: String,
+        articleUrl: String,
+        publishDate: Date,
+        tags: [String] = [],
+        category: String = ""
+    ) {
+        self.id = id
+        self.title = title
+        self.pureTitle = pureTitle
+        self.thumbnail = thumbnail
+        self.articleUrl = articleUrl
+        self.publishDate = publishDate
+        self.tags = tags
+        self.category = category
     }
 }
 
