@@ -1,4 +1,8 @@
 import SwiftUI
+import UniformTypeIdentifiers
+#if os(iOS)
+import PhotosUI
+#endif
 
 struct SearchView: View {
     @StateObject private var store = SearchStore()
@@ -14,6 +18,13 @@ struct SearchView: View {
     @State private var show404Error = false
     @State private var errorMessage = ""
     @State private var showProfilePanel = false
+    @State private var showSauceToast = false
+    @State private var sauceToastMessage = ""
+    @State private var showImageFileImporter = false
+    #if os(iOS)
+    @State private var showPhotosPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    #endif
     var accountStore: AccountStore = AccountStore.shared
 
     private var columnCount: Int {
@@ -57,6 +68,87 @@ struct SearchView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         #endif
     }
+
+    private func startSauceNaoSearch() {
+        guard accountStore.isLoggedIn else {
+            showSauceToastMessage(String(localized: "请先登录"))
+            return
+        }
+        #if os(iOS)
+        showPhotosPicker = true
+        #else
+        showImageFileImporter = true
+        #endif
+    }
+
+    private func showSauceToastMessage(_ message: String) {
+        sauceToastMessage = message
+        showSauceToast = true
+    }
+
+    private func handleImportedImage(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            Task {
+                await searchWithImageURL(url)
+            }
+        case .failure(let error):
+            showSauceToastMessage("读取图片失败: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func searchWithImageURL(_ url: URL) async {
+        do {
+            let data = try loadImageData(from: url)
+            let fileName = url.lastPathComponent.isEmpty ? "image.jpg" : url.lastPathComponent
+            await searchWithImageData(data, fileName: fileName)
+        } catch {
+            showSauceToastMessage("读取图片失败: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadImageData(from url: URL) throws -> Data {
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        return try Data(contentsOf: url)
+    }
+
+    @MainActor
+    private func searchWithImageData(_ data: Data, fileName: String) async {
+        let requestId = SauceNaoSearchRequestStore.shared.enqueue(imageData: data, fileName: fileName)
+        path.append(SauceNaoResultTarget(requestId: requestId))
+    }
+
+    #if os(iOS)
+    private func handleSelectedPhotoItem(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+        Task {
+            do {
+                guard let imageData = try await item.loadTransferable(type: Data.self) else {
+                    await MainActor.run {
+                        showSauceToastMessage(String(localized: "读取图片失败"))
+                    }
+                    return
+                }
+                await searchWithImageData(imageData, fileName: "photo.jpg")
+                await MainActor.run {
+                    selectedPhotoItem = nil
+                }
+            } catch {
+                await MainActor.run {
+                    showSauceToastMessage("读取图片失败: \(error.localizedDescription)")
+                    selectedPhotoItem = nil
+                }
+            }
+        }
+    }
+    #endif
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -123,27 +215,39 @@ struct SearchView: View {
             #endif
             .navigationTitle(String(localized: "搜索"))
             .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    HStack(spacing: 16) {
-                        if !store.searchHistory.isEmpty && store.searchText.isEmpty && accountStore.isLoggedIn {
-                            Button(action: {
-                                showClearHistoryConfirmation = true
-                            }) {
-                                Image(systemName: "trash")
-                            }
-                            .confirmationDialog(String(localized: "确定要清除所有搜索历史吗？"), isPresented: $showClearHistoryConfirmation, titleVisibility: .visible) {
-                                Button(String(localized: "清除所有"), role: .destructive) {
-                                    triggerHaptic()
-                                    store.clearHistory()
-                                }
-                                Button(String(localized: "取消"), role: .cancel) {}
-                            }
+                if accountStore.isLoggedIn {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: {
+                            startSauceNaoSearch()
+                        }) {
+                            Image(systemName: "photo.badge.magnifyingglass")
                         }
-                        #if os(iOS)
-                        ProfileButton(accountStore: accountStore, isPresented: $showProfilePanel)
-                        #endif
                     }
                 }
+                if !store.searchHistory.isEmpty && store.searchText.isEmpty && accountStore.isLoggedIn {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: {
+                            showClearHistoryConfirmation = true
+                        }) {
+                            Image(systemName: "trash")
+                        }
+                        .confirmationDialog(String(localized: "确定要清除所有搜索历史吗？"), isPresented: $showClearHistoryConfirmation, titleVisibility: .visible) {
+                            Button(String(localized: "清除所有"), role: .destructive) {
+                                triggerHaptic()
+                                store.clearHistory()
+                            }
+                            Button(String(localized: "取消"), role: .cancel) {}
+                        }
+                    }
+                }
+                #if os(iOS)
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    ProfileButton(accountStore: accountStore, isPresented: $showProfilePanel)
+                }
+                #endif
             }
             .onAppear {
                 store.loadSearchHistory()
@@ -162,6 +266,9 @@ struct SearchView: View {
                 await store.fetchTrendTags()
             }
             .pixivNavigationDestinations()
+            .navigationDestination(for: SauceNaoResultTarget.self) { target in
+                SauceNaoResultListView(requestId: target.requestId)
+            }
             .task(id: pendingIllustId) {
                 if let illustId = pendingIllustId {
                     isLoadingDetail = true
@@ -216,11 +323,28 @@ struct SearchView: View {
             }
             .toast(isPresented: $showBlockToast, message: String(localized: "已屏蔽 Tag"))
             .toast(isPresented: $show404Error, message: errorMessage)
+            .toast(isPresented: $showSauceToast, message: sauceToastMessage)
             .sheet(isPresented: $showProfilePanel) {
                 #if os(iOS)
                 ProfilePanelView(accountStore: accountStore, isPresented: $showProfilePanel)
                 #endif
             }
+            .fileImporter(
+                isPresented: $showImageFileImporter,
+                allowedContentTypes: [.image],
+                allowsMultipleSelection: false,
+                onCompletion: handleImportedImage
+            )
+            #if os(iOS)
+            .photosPicker(
+                isPresented: $showPhotosPicker,
+                selection: $selectedPhotoItem,
+                matching: .images
+            )
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                handleSelectedPhotoItem(newItem)
+            }
+            #endif
             .onChange(of: accountStore.navigationRequest) { _, newValue in
                 if let request = newValue {
                     switch request {
