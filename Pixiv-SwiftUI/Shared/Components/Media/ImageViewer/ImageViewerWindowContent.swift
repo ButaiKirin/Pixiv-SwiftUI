@@ -83,7 +83,7 @@ struct ImageViewerWindowContent: View {
             isHoveringTop = hovering
         }
         .onAppear {
-            setupKeyboardShortcuts()
+            setupEvents()
         }
         .gesture(
             MagnificationGesture()
@@ -108,8 +108,30 @@ struct ImageViewerWindowContent: View {
         .frame(minWidth: 400, minHeight: 300)
     }
 
-    private func setupKeyboardShortcuts() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+    private func setupEvents() {
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel]) { event in
+            // Only handle if this window is key for better safety
+            // guard event.window == NSApp.keyWindow else { return event }
+
+            if event.type == .scrollWheel {
+                let isTrackpad = event.hasPreciseScrollingDeltas
+                let hasModifier = event.modifierFlags.contains(.command) || event.modifierFlags.contains(.option)
+
+                // Zoom if modifier is held OR if it's a traditional mouse wheel (not trackpad)
+                if hasModifier || !isTrackpad {
+                    let delta = event.scrollingDeltaY
+                    if abs(delta) > 0 {
+                        // Mouse wheels usually need higher sensitivity than trackpad scrolls for zooming
+                        let multiplier: CGFloat = isTrackpad ? 0.02 : 0.08
+                        let zoomFactor = 1.0 + (delta * multiplier)
+                        let newScale = scale * zoomFactor
+                        scale = min(max(newScale, 1.0), 5.0)
+                        return nil
+                    }
+                }
+                return event
+            }
+
             switch event.keyCode {
             case 123: // Left arrow
                 if isMultiPage && currentPage > 0 {
