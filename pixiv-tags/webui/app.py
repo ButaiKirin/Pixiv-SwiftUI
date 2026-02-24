@@ -226,7 +226,7 @@ async def get_stats(language: str = "chinese"):
 
 
 @app.get("/api/tag/search")
-async def search_tags(keyword: str = "", limit: int = 20, language: str = "chinese"):
+async def search_tags(keyword: str = "", limit: int = 1000, language: str = "chinese"):
     """搜索标签（同时搜索原文和译文）"""
     if language not in ["chinese", "english"]:
         language = "chinese"

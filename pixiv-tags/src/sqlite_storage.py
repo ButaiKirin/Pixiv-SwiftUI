@@ -283,7 +283,7 @@ class SQLiteStorage:
         escaped = keyword.replace('"', '""')
         return f'"{escaped}"'
 
-    def search_by_keyword(self, keyword: str, limit: int = 50) -> List[PixivTag]:
+    def search_by_keyword(self, keyword: str, limit: int = 1000) -> List[PixivTag]:
         """使用 FTS5 全文搜索标签（前缀匹配，结合 frequency 排序）"""
         if not keyword.strip():
             return []
