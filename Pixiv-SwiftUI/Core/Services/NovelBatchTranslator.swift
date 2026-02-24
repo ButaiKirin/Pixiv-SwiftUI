@@ -45,22 +45,6 @@ actor NovelBatchTranslator {
         let items: [NovelBatchResponseItem]
     }
 
-    private let systemPrompt = """
-    You are a professional literary translator for Pixiv Japanese novels.
-    Translate all `items[*].text` into {targetLang}.
-    Keep names, tone, pacing, and line intent consistent with the source.
-    Do not censor or skip any content.
-    The `context` field is reference-only and must not be translated.
-    Output must be strict JSON only, with this exact shape:
-    {"items":[{"id":123,"translation":"..."}]}
-    Return every input item exactly once with the same id.
-    """
-
-    private let userPrompt = """
-    Translate this JSON payload and return JSON only:
-    {sourceText}
-    """
-
     func translateBatch(
         paragraphs: [NovelBatchInput],
         context: [String],
@@ -68,8 +52,20 @@ actor NovelBatchTranslator {
         baseURL: String,
         apiKey: String,
         model: String,
-        temperature: Double
+        temperature: Double,
+        baseSystemPrompt: String? = nil
     ) async throws -> [Int: String] {
+        let stylePrompt = baseSystemPrompt ?? "You are a professional literary translator for Pixiv Japanese novels. Ensure the translation is fluent and natural, maintaining the original meaning and style."
+        
+        let systemPrompt = """
+        \(stylePrompt)
+        Translate all `items[*].text` into {targetLang}.
+        The `context` field is reference-only and must not be translated.
+        Output must be strict JSON only, with this exact shape:
+        {"items":[{"id":123,"translation":"..."}]}
+        Return every input item exactly once with the same id.
+        """
+
         let request = NovelBatchRequest(
             targetLanguage: targetLanguage,
             context: context.map { NovelBatchContextItem(text: $0) },
@@ -83,6 +79,8 @@ actor NovelBatchTranslator {
         else {
             throw NovelBatchTranslationError.invalidPayload
         }
+
+        let userPrompt = "Translate this JSON payload and return JSON only:\n{sourceText}"
 
         let service = OpenAITranslateService(
             baseURL: baseURL,

@@ -156,7 +156,7 @@ struct TranslatableParagraph: View {
                 apiKey: setting.translateOpenAIApiKey,
                 model: setting.translateOpenAIModel.isEmpty ? "gpt-3.5-turbo" : setting.translateOpenAIModel,
                 temperature: setting.translateOpenAITemperature,
-                systemPrompt: "Translate the text provided by the user into {targetLang}. This text comes from Pixiv, a Japanese illustration website. The text may include illustration titles, descriptions, comments, or light novel content, which could contain character names or idiomatic expressions. Ensure the translation is appropriate and accurate, without avoiding NSFW content. Provide only the translation, without any explanation."
+                systemPrompt: setting.translateOpenAISystemPrompt
             )
         case "baidu":
             let setting = userSettingStore.userSetting

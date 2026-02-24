@@ -41,6 +41,14 @@ struct TranslationSettingView: View {
     @State private var tencentProjectId: String = ""
     @State private var tagTranslationDisplayMode: Int = 2
 
+    @State private var maxParagraphs: Int = 8
+    @State private var maxCharacters: Int = 4000
+    @State private var contextParagraphs: Int = 2
+    @State private var maxConcurrentBatches: Int = 2
+
+    @State private var openAISystemPrompt: String = ""
+    @State private var novelSystemPrompt: String = ""
+
     @State private var isTestingOpenAI: Bool = false
     @State private var isTestingBaidu: Bool = false
     @State private var isTestingGoogle: Bool = false
@@ -52,7 +60,6 @@ struct TranslationSettingView: View {
     @State private var toastMessage: String = ""
     @State private var showToast: Bool = false
     @State private var showClearCacheConfirmation: Bool = false
-    @State private var showNovelTranslationSettings: Bool = false
 
     var body: some View {
         Form {
@@ -62,6 +69,7 @@ struct TranslationSettingView: View {
             tagTranslationDisplayModeSection
             serviceConfigSection
             novelTranslationSection
+            promptConfigSection
             cacheSection
         }
         .formStyle(.grouped)
@@ -80,32 +88,102 @@ struct TranslationSettingView: View {
         } message: {
             Text(String(localized: "确定要清除所有小说翻译缓存吗？此操作不可撤销。"))
         }
-        .sheet(isPresented: $showNovelTranslationSettings) {
-            NavigationStack {
-                NovelTranslationSettingView()
+        .toast(isPresented: $showToast, message: toastMessage)
+    }
+
+    @ViewBuilder
+    private var promptConfigSection: some View {
+        if primaryServiceId == "openai" {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(String(localized: "常规翻译提示词"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextEditor(text: $openAISystemPrompt)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 100)
+                        .padding(4)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(8)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(String(localized: "小说翻译提示词"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextEditor(text: $novelSystemPrompt)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 100)
+                        .padding(4)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(8)
+                }
+
+                Button {
+                    resetPrompts()
+                } label: {
+                    HStack {
+                        Spacer()
+                        Text(String(localized: "重置为默认提示词"))
+                        Spacer()
+                    }
+                }
+            } header: {
+                Text(String(localized: "提示词设置"))
+            } footer: {
+                Text(String(localized: "使用 {targetLang} 作为目标语言占位符。小说翻译提示词将在单段翻译和批量翻译中生效。"))
             }
         }
-        .toast(isPresented: $showToast, message: toastMessage)
+    }
+
+    private func resetPrompts() {
+        openAISystemPrompt = "Translate the text provided by the user into {targetLang}. This text comes from Pixiv, a Japanese illustration website. The text may include illustration titles, descriptions, comments, or light novel content, which could contain character names or idiomatic expressions. Ensure the translation is appropriate and accurate, without avoiding NSFW content. Provide only the translation, without any explanation."
+        novelSystemPrompt = "You are a professional literary translator for Pixiv Japanese novels. Translate the text provided by the user into {targetLang}. Ensure the translation is fluent and natural, maintaining the original meaning and style. Keep names, tone, pacing, and line intent consistent with the source. Do not censor or skip any content. Provide only the translation, without any explanation."
     }
 
     @ViewBuilder
     private var novelTranslationSection: some View {
         if primaryServiceId == "openai" {
             Section {
-                Button {
-                    showNovelTranslationSettings = true
-                } label: {
+                Stepper(value: $maxParagraphs, in: 1...20) {
                     HStack {
-                        Text(String(localized: "小说翻译优化"))
+                        Text(String(localized: "单批最大段落"))
                         Spacer()
-                        Image(systemName: "chevron.right")
+                        Text("\(maxParagraphs)")
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Stepper(value: $maxCharacters, in: 500...16000, step: 250) {
+                    HStack {
+                        Text(String(localized: "单批最大字符"))
+                        Spacer()
+                        Text("\(maxCharacters)")
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Stepper(value: $contextParagraphs, in: 0...10) {
+                    HStack {
+                        Text(String(localized: "前文上下文段落"))
+                        Spacer()
+                        Text("\(contextParagraphs)")
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Stepper(value: $maxConcurrentBatches, in: 1...4) {
+                    HStack {
+                        Text(String(localized: "并发批次"))
+                        Spacer()
+                        Text("\(maxConcurrentBatches)")
                             .foregroundColor(.secondary)
                     }
                 }
             } header: {
-                Text(String(localized: "小说翻译"))
+                Text(String(localized: "小说翻译优化"))
             } footer: {
-                Text(String(localized: "配置小说场景的批量翻译策略、上下文和并发控制。"))
+                Text(String(localized: "达到段落数或字符数上限时会切分批次，跨批次上下文可帮助模型保持人名和语气一致。"))
             }
         }
     }
@@ -615,6 +693,14 @@ struct TranslationSettingView: View {
         tencentSecretKey = userSettingStore.userSetting.translateTencentSecretKey
         tencentRegion = userSettingStore.userSetting.translateTencentRegion
         tencentProjectId = userSettingStore.userSetting.translateTencentProjectId
+
+        maxParagraphs = userSettingStore.userSetting.translateNovelBatchMaxParagraphs
+        maxCharacters = userSettingStore.userSetting.translateNovelBatchMaxCharacters
+        contextParagraphs = userSettingStore.userSetting.translateNovelContextParagraphs
+        maxConcurrentBatches = userSettingStore.userSetting.translateNovelMaxConcurrentBatches
+
+        openAISystemPrompt = userSettingStore.userSetting.translateOpenAISystemPrompt
+        novelSystemPrompt = userSettingStore.userSetting.translateNovelSystemPrompt
     }
 
     private func loadCacheSize() {
@@ -657,6 +743,15 @@ struct TranslationSettingView: View {
         try? userSettingStore.setTranslateTencentSecretKey(tencentSecretKey)
         try? userSettingStore.setTranslateTencentRegion(tencentRegion)
         try? userSettingStore.setTranslateTencentProjectId(tencentProjectId)
+
+        try? userSettingStore.setTranslateNovelBatchEnabled(true)
+        try? userSettingStore.setTranslateNovelBatchMaxParagraphs(maxParagraphs)
+        try? userSettingStore.setTranslateNovelBatchMaxCharacters(maxCharacters)
+        try? userSettingStore.setTranslateNovelContextParagraphs(contextParagraphs)
+        try? userSettingStore.setTranslateNovelMaxConcurrentBatches(maxConcurrentBatches)
+
+        try? userSettingStore.setTranslateOpenAISystemPrompt(openAISystemPrompt)
+        try? userSettingStore.setTranslateNovelSystemPrompt(novelSystemPrompt)
     }
 
     private func createOpenAIService() -> OpenAITranslateService {
@@ -664,7 +759,8 @@ struct TranslationSettingView: View {
             baseURL: openAIBaseURL.isEmpty ? "https://api.openai.com/v1" : openAIBaseURL,
             apiKey: openAIApiKey,
             model: openAIModel.isEmpty ? "gpt-3.5-turbo" : openAIModel,
-            temperature: openAITemperature
+            temperature: openAITemperature,
+            systemPrompt: openAISystemPrompt
         )
     }
 

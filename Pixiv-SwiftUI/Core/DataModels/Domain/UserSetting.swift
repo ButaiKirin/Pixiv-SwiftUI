@@ -212,6 +212,12 @@ final class UserSetting: Codable {
     /// 小说批量翻译最大并发批次
     var translateNovelMaxConcurrentBatches: Int = 2
 
+    /// OpenAI 常规翻译系统提示词
+    var translateOpenAISystemPrompt: String = "Translate the text provided by the user into {targetLang}. This text comes from Pixiv, a Japanese illustration website. The text may include illustration titles, descriptions, comments, or light novel content, which could contain character names or idiomatic expressions. Ensure the translation is appropriate and accurate, without avoiding NSFW content. Provide only the translation, without any explanation."
+
+    /// OpenAI 小说翻译系统提示词
+    var translateNovelSystemPrompt: String = "You are a professional literary translator for Pixiv Japanese novels. Translate the text provided by the user into {targetLang}. Ensure the translation is fluent and natural, maintaining the original meaning and style. Keep names, tone, pacing, and line intent consistent with the source. Do not censor or skip any content. Provide only the translation, without any explanation."
+
     /// Tag翻译显示模式：0=不显示译文 1=仅显示官方译文 2=使用本地的优化译文
     var tagTranslationDisplayMode: Int = 2
 
@@ -321,6 +327,8 @@ final class UserSetting: Codable {
         case translateNovelBatchMaxCharacters
         case translateNovelContextParagraphs
         case translateNovelMaxConcurrentBatches
+        case translateOpenAISystemPrompt
+        case translateNovelSystemPrompt
         case tagTranslationDisplayMode
         case downloadQuality
         case createAuthorFolder
@@ -414,6 +422,8 @@ final class UserSetting: Codable {
         self.translateNovelBatchMaxCharacters = try container.decodeIfPresent(Int.self, forKey: .translateNovelBatchMaxCharacters) ?? 4_000
         self.translateNovelContextParagraphs = try container.decodeIfPresent(Int.self, forKey: .translateNovelContextParagraphs) ?? 2
         self.translateNovelMaxConcurrentBatches = try container.decodeIfPresent(Int.self, forKey: .translateNovelMaxConcurrentBatches) ?? 2
+        self.translateOpenAISystemPrompt = try container.decodeIfPresent(String.self, forKey: .translateOpenAISystemPrompt) ?? "Translate the text provided by the user into {targetLang}. This text comes from Pixiv, a Japanese illustration website. The text may include illustration titles, descriptions, comments, or light novel content, which could contain character names or idiomatic expressions. Ensure the translation is appropriate and accurate, without avoiding NSFW content. Provide only the translation, without any explanation."
+        self.translateNovelSystemPrompt = try container.decodeIfPresent(String.self, forKey: .translateNovelSystemPrompt) ?? "You are a professional literary translator for Pixiv Japanese novels. Translate the text provided by the user into {targetLang}. Ensure the translation is fluent and natural, maintaining the original meaning and style. Keep names, tone, pacing, and line intent consistent with the source. Do not censor or skip any content. Provide only the translation, without any explanation."
         self.tagTranslationDisplayMode = try container.decodeIfPresent(Int.self, forKey: .tagTranslationDisplayMode) ?? 2
         self.downloadQuality = try container.decodeIfPresent(Int.self, forKey: .downloadQuality) ?? 2
         self.createAuthorFolder = try container.decodeIfPresent(Bool.self, forKey: .createAuthorFolder) ?? true
@@ -498,6 +508,8 @@ final class UserSetting: Codable {
         try container.encode(translateNovelBatchMaxCharacters, forKey: .translateNovelBatchMaxCharacters)
         try container.encode(translateNovelContextParagraphs, forKey: .translateNovelContextParagraphs)
         try container.encode(translateNovelMaxConcurrentBatches, forKey: .translateNovelMaxConcurrentBatches)
+        try container.encode(translateOpenAISystemPrompt, forKey: .translateOpenAISystemPrompt)
+        try container.encode(translateNovelSystemPrompt, forKey: .translateNovelSystemPrompt)
         try container.encode(tagTranslationDisplayMode, forKey: .tagTranslationDisplayMode)
         try container.encode(downloadQuality, forKey: .downloadQuality)
         try container.encode(createAuthorFolder, forKey: .createAuthorFolder)

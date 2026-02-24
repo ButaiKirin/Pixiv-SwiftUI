@@ -814,6 +814,16 @@ final class UserSettingStore {
         try saveSetting()
     }
 
+    func setTranslateOpenAISystemPrompt(_ prompt: String) throws {
+        userSetting.translateOpenAISystemPrompt = prompt
+        try saveSetting()
+    }
+
+    func setTranslateNovelSystemPrompt(_ prompt: String) throws {
+        userSetting.translateNovelSystemPrompt = prompt
+        try saveSetting()
+    }
+
     func setTranslatePrimaryServiceId(_ id: String) throws {
         userSetting.translatePrimaryServiceId = id
         try saveSetting()

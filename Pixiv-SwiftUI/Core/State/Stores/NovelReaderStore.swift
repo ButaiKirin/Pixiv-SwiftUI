@@ -369,6 +369,7 @@ final class NovelReaderStore {
         let model = setting.translateOpenAIModel.isEmpty ? "gpt-5.1-nano" : setting.translateOpenAIModel
         let apiKey = setting.translateOpenAIApiKey
         let temperature = setting.translateOpenAITemperature
+        let novelSystemPrompt = setting.translateNovelSystemPrompt
 
         var iterator = plans.makeIterator()
 
@@ -388,7 +389,8 @@ final class NovelReaderStore {
                                 baseURL: baseURL,
                                 apiKey: apiKey,
                                 model: model,
-                                temperature: temperature
+                                temperature: temperature,
+                                baseSystemPrompt: novelSystemPrompt
                             )
                             return .success(indices: plan.paragraphIndices, translations: translations)
                         } catch {
@@ -451,7 +453,8 @@ final class NovelReaderStore {
                                 baseURL: baseURL,
                                 apiKey: apiKey,
                                 model: model,
-                                temperature: temperature
+                                temperature: temperature,
+                                baseSystemPrompt: novelSystemPrompt
                             )
                             return .success(indices: next.paragraphIndices, translations: translations)
                         } catch {
@@ -491,7 +494,7 @@ private func performTranslation(text: String, serviceId: String, targetLanguage:
                 apiKey: setting.translateOpenAIApiKey,
                 model: setting.translateOpenAIModel.isEmpty ? "gpt-3.5-turbo" : setting.translateOpenAIModel,
                 temperature: setting.translateOpenAITemperature,
-                systemPrompt: "Translate the text provided by the user into {targetLang}. This text comes from Pixiv, a Japanese novel. Ensure the translation is fluent and natural, maintaining the original meaning and style. Provide only the translation, without any explanation."
+                systemPrompt: setting.translateNovelSystemPrompt
             )
         case "baidu":
             let setting = UserSettingStore.shared.userSetting
