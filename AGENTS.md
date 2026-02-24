@@ -2,13 +2,13 @@
 
 ```bash
 # macOS build
-xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Pixiv-SwiftUI -configuration Debug -destination 'platform=macOS' build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)"
+xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Debug -configuration Debug -destination 'platform=macOS' build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)"
 
 # iOS Simulator build (iPhone 17)
-xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Pixiv-SwiftUI -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)"
+xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Debug -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17' build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)"
 
 # Full verbose build
-xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Pixiv-SwiftUI -configuration Debug -destination 'platform=macOS' build
+xcodebuild -project Pixiv-SwiftUI.xcodeproj -scheme Debug -configuration Debug -destination 'platform=macOS' build
 ```
 
 ## SwiftLint
@@ -39,7 +39,7 @@ let w = 100
 ### Language & Environment
 - **Language**: Swift 6.0
 - **Frameworks**: SwiftUI, SwiftData, Observation
-- **Platforms**: iOS 18+, macOS 15+
+- **Platforms**: iOS 17+, macOS 14+
 
 ### Naming Conventions
 - **Types** (classes, structs, enums): PascalCase (e.g., `IllustStore`, `UserModel`)
