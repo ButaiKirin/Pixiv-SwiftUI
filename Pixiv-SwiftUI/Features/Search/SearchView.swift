@@ -21,6 +21,7 @@ struct SearchView: View {
     @State private var showSauceToast = false
     @State private var sauceToastMessage = ""
     @State private var showImageFileImporter = false
+    @State private var isSearchPresented = false
     #if os(iOS)
     @State private var showPhotosPicker = false
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -150,6 +151,19 @@ struct SearchView: View {
     }
     #endif
 
+    private var searchPrompt: String {
+        accountStore.isLoggedIn ? String(localized: "搜索插画、小说和画师") : String(localized: "请先登录以使用搜索")
+    }
+
+    @MainActor
+    private func performSearch(word: String) {
+        isSearchPresented = false
+        store.addHistory(word)
+        selectedTag = word
+        path = NavigationPath()
+        path.append(SearchResultTarget(word: word))
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
@@ -166,9 +180,11 @@ struct SearchView: View {
             #if os(iOS)
             .searchable(
                 text: $store.searchText,
+                isPresented: $isSearchPresented,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: accountStore.isLoggedIn ? String(localized: "搜索插画、小说和画师") : String(localized: "请先登录以使用搜索")
-            ) {
+                prompt: searchPrompt
+            )
+            .searchSuggestions {
                 SearchSuggestionView(
                     store: store,
                     accountStore: accountStore,
@@ -180,18 +196,13 @@ struct SearchView: View {
                         try? userSettingStore.addBlockedTagWithInfo(name, translatedName: translatedName)
                         showBlockToast = true
                     },
-                    onSearch: { word in
-                        store.addHistory(word)
-                        selectedTag = word
-                        path = NavigationPath()
-                        path.append(SearchResultTarget(word: word))
-                    }
+                    onSearch: performSearch
                 )
             }
             #else
             .searchable(
                 text: $store.searchText,
-                prompt: accountStore.isLoggedIn ? String(localized: "搜索插画、小说和画师") : String(localized: "请先登录以使用搜索")
+                prompt: searchPrompt
             ) {
                 SearchSuggestionView(
                     store: store,
@@ -204,12 +215,7 @@ struct SearchView: View {
                         try? userSettingStore.addBlockedTagWithInfo(name, translatedName: translatedName)
                         showBlockToast = true
                     },
-                    onSearch: { word in
-                        store.addHistory(word)
-                        selectedTag = word
-                        path = NavigationPath()
-                        path.append(SearchResultTarget(word: word))
-                    }
+                    onSearch: performSearch
                 )
             }
             #endif
@@ -251,15 +257,14 @@ struct SearchView: View {
             }
             .onAppear {
                 store.loadSearchHistory()
+                if !store.searchText.isEmpty {
+                    isSearchPresented = true
+                }
             }
             .onSubmit(of: .search) {
                 guard accountStore.isLoggedIn else { return }
                 if !store.searchText.isEmpty {
-                    // 将搜索关键词添加到历史记录
-                    store.addHistory(store.searchText)
-                    selectedTag = store.searchText
-                    path = NavigationPath()
-                    path.append(SearchResultTarget(word: store.searchText))
+                    performSearch(word: store.searchText)
                 }
             }
             .task {
