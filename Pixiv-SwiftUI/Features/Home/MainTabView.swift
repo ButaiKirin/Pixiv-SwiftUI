@@ -6,7 +6,7 @@ struct MainTabView: View {
     @Bindable var accountStore: AccountStore
 
     var body: some View {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, macOS 26.0, *) {
             MainTabViewNew(accountStore: accountStore)
         } else {
             MainTabViewLegacy(accountStore: accountStore)
@@ -14,7 +14,7 @@ struct MainTabView: View {
     }
 }
 
-@available(iOS 26.0, *)
+@available(iOS 26.0, macOS 26.0, *)
 private struct MainTabViewNew: View {
     @State private var selectedTab: NavigationItem = .recommend
     @Bindable var accountStore: AccountStore

@@ -8,6 +8,17 @@ struct SizePreferenceKey: PreferenceKey {
 }
 
 extension View {
+    @ViewBuilder
+    func scrollPositionCompat(id: Binding<Int?>) -> some View {
+        if #available(iOS 18.0, macOS 15.0, *) {
+            self.scrollPosition(id: id, anchor: .top)
+        } else {
+            self.scrollPosition(id: id)
+        }
+    }
+}
+
+extension View {
     func readSize(onChange: @escaping (CGSize) -> Void) -> some View {
         background(
             GeometryReader { geometryProxy in

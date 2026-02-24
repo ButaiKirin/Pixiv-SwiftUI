@@ -219,7 +219,7 @@ struct NovelReaderView: View {
                     .padding(.horizontal, store.settings.horizontalPadding)
                     .scrollTargetLayout()
                 }
-                .scrollPosition(id: $scrollPositionID, anchor: .top)
+                .scrollPositionCompat(id: $scrollPositionID)
                 .onChange(of: scrollPositionID) { _, newValue in
                     if let index = newValue {
                         store.saveProgress(index: index)
