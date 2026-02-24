@@ -3,7 +3,7 @@ import SwiftData
 
 /// 插画信息
 @Model
-final class Illusts: Codable, @unchecked Sendable {
+final class Illusts: Codable {
     var id: Int
     var ownerId: String = "guest"
     var title: String
@@ -188,3 +188,5 @@ final class Illusts: Codable, @unchecked Sendable {
         try container.encode(restrictionAttributes, forKey: .restrictionAttributes)
     }
 }
+
+extension Illusts: @unchecked Sendable {}

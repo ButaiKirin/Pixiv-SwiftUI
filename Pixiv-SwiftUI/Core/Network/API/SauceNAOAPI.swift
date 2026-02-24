@@ -47,7 +47,7 @@ final class SauceNAOAPI {
         if html.contains("Daily Search Limit Exceeded") {
             throw AppError.networkError("已达到今日搜图上限")
         }
-        
+
         if html.contains("Search Limit Exceeded") {
             throw AppError.networkError("搜索太快啦，请歇会再试")
         }
@@ -147,7 +147,7 @@ final class SauceNAOAPI {
 
     private func makeMultipartBody(imageData: Data, fileName: String, boundary: String) -> Data {
         var body = Data()
-        
+
         // Add form parameters
         let params = [
             "db": "999",
@@ -155,13 +155,13 @@ final class SauceNAOAPI {
             "hide": "0",
             "frame": "1"
         ]
-        
+
         for (key, value) in params {
             body.appendUTF8("--\(boundary)\r\n")
             body.appendUTF8("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n")
             body.appendUTF8("\(value)\r\n")
         }
-        
+
         // Add file
         body.appendUTF8("--\(boundary)\r\n")
         body.appendUTF8("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n")

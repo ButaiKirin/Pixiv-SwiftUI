@@ -130,7 +130,9 @@ struct UgoiraView: View {
         displayLink?.add(to: .main, forMode: .common)
         #else
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { _ in
-            updateFrameWithTimer()
+            Task { @MainActor in
+                updateFrameWithTimer()
+            }
         }
         #endif
     }

@@ -99,6 +99,7 @@ struct WebViewRepresentable: ViewRepresentable {
     }
     #endif
 
+    @MainActor
     class Coordinator: NSObject, WKNavigationDelegate {
         var parent: WebViewRepresentable
 
@@ -106,7 +107,7 @@ struct WebViewRepresentable: ViewRepresentable {
             self.parent = parent
         }
 
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @MainActor @escaping (WKNavigationActionPolicy) -> Void) {
             if let url = navigationAction.request.url {
                 if url.scheme == "pixiv" {
                     parent.onRedirect(url)
@@ -117,11 +118,11 @@ struct WebViewRepresentable: ViewRepresentable {
             decisionHandler(.allow)
         }
 
-        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @MainActor @escaping (WKNavigationResponsePolicy) -> Void) {
             decisionHandler(.allow)
         }
 
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, preferences: WKWebpagePreferences, decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, preferences: WKWebpagePreferences, decisionHandler: @MainActor @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
             decisionHandler(.allow, preferences)
         }
 

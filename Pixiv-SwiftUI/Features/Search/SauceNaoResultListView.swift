@@ -166,11 +166,11 @@ private final class SauceNaoResultListStore: ObservableObject {
         for (index, match) in matches.enumerated() {
             // 检查任务是否被取消（例如由于视图消失）
             if Task.isCancelled { return }
-            
+
             do {
                 let illust = try await PixivAPI.shared.getIllustDetail(illustId: match.illustId)
                 let item = SauceNaoResultItem(index: index, illust: illust, similarity: match.similarity)
-                
+
                 // 确保 UI 更新在主线程
                 items.append(item)
             } catch {

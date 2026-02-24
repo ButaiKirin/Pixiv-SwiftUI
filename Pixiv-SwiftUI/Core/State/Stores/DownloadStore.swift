@@ -213,17 +213,16 @@ final class DownloadStore: ObservableObject {
         switch task.contentType {
         case .ugoira:
             await executeUgoiraDownload(task: task)
-            return
         case .novel:
             await executeNovelDownload(task: task)
-            return
         case .novelSeries:
             await executeNovelSeriesDownload(task: task)
-            return
         case .image:
-            break
+            await executeImageDownload(task: task)
         }
+    }
 
+    private func executeImageDownload(task: DownloadTask) async {
         Logger.download.debug("开始下载图片任务: \(task.title, privacy: .public), 页数: \(task.imageURLs.count)")
 
         var savedPaths: [URL] = []

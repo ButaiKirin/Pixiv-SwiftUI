@@ -107,9 +107,8 @@ struct UpdatesPage: View {
                     }
                     .refreshable {
                         let userId = accountStore.currentAccount?.userId ?? ""
-                        async let following = store.refreshFollowing(userId: userId)
-                        async let updates = store.refreshUpdates(restrict: restrictString)
-                        _ = await (following, updates)
+                        await store.refreshFollowing(userId: userId)
+                        await store.refreshUpdates(restrict: restrictString)
                     }
                     .navigationTitle("动态")
                     .pixivNavigationDestinations()
@@ -132,9 +131,8 @@ struct UpdatesPage: View {
                         if isLoggedIn {
                             let userId = accountStore.currentAccount?.userId ?? ""
                             Task {
-                                async let following = store.refreshFollowing(userId: userId)
-                                async let updates = store.refreshUpdates(restrict: restrictString)
-                                _ = await (following, updates)
+                                await store.refreshFollowing(userId: userId)
+                                await store.refreshUpdates(restrict: restrictString)
                             }
                         }
                     }
@@ -142,9 +140,8 @@ struct UpdatesPage: View {
                         if isLoggedIn {
                             let userId = accountStore.currentAccount?.userId ?? ""
                             Task {
-                                async let following = store.refreshFollowing(userId: userId)
-                                async let updates = store.refreshUpdates(restrict: restrictString)
-                                _ = await (following, updates)
+                                await store.refreshFollowing(userId: userId)
+                                await store.refreshUpdates(restrict: restrictString)
                             }
                         }
                     }
@@ -194,9 +191,8 @@ struct UpdatesPage: View {
                 if isLoggedIn {
                     let userId = accountStore.currentAccount?.userId ?? ""
                     Task {
-                        async let following = store.fetchFollowing(userId: userId)
-                        async let updates = store.fetchUpdates(restrict: restrictString)
-                        _ = await (following, updates)
+                        await store.fetchFollowing(userId: userId)
+                        await store.fetchUpdates(restrict: restrictString)
                     }
                 }
             }
