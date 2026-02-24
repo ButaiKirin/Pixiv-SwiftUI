@@ -29,6 +29,12 @@ public struct AnimatedAvatarImage: View {
         return urlString.lowercased().hasSuffix(".gif")
     }
 
+    private func shouldUseDirectConnection(url: URL) -> Bool {
+        guard let host = url.host else { return false }
+        return NetworkModeStore.shared.useDirectConnection &&
+               (host.contains("i.pximg.net") || host.contains("img-master.pixiv.net"))
+    }
+
     public var body: some View {
         imageContent
             .frame(width: size, height: size)
@@ -40,28 +46,50 @@ public struct AnimatedAvatarImage: View {
         if let urlString = urlString, let url = URL(string: urlString), !urlString.isEmpty {
             if isGIF && userSettingStore.userSetting.showGifAvatar {
                 // Use KFAnimatedImage for GIF support (especially on macOS)
-                KFAnimatedImage(url)
-                    .requestModifier(PixivImageLoader.shared)
-                    .diskCacheExpiration(expiration.kingfisherExpiration)
-                    .memoryCacheExpiration(expiration.kingfisherExpiration)
-                    .fade(duration: 0.5)
-                    .placeholder {
-                        placeholderView
-                    }
-                    // KFAnimatedImage is resizable by default and doesn't support .resizable()
-                    // in the same way as KFImage. It will fill the available space.
+                if shouldUseDirectConnection(url: url) {
+                    KFAnimatedImage(source: .directNetwork(url))
+                        .diskCacheExpiration(expiration.kingfisherExpiration)
+                        .memoryCacheExpiration(expiration.kingfisherExpiration)
+                        .fade(duration: 0.5)
+                        .placeholder {
+                            placeholderView
+                        }
+                } else {
+                    KFAnimatedImage(url)
+                        .requestModifier(PixivImageLoader.shared)
+                        .diskCacheExpiration(expiration.kingfisherExpiration)
+                        .memoryCacheExpiration(expiration.kingfisherExpiration)
+                        .fade(duration: 0.5)
+                        .placeholder {
+                            placeholderView
+                        }
+                }
+                // KFAnimatedImage is resizable by default and doesn't support .resizable()
+                // in the same way as KFImage. It will fill the available space.
             } else {
                 // Use standard KFImage for static images
-                KFImage(url)
-                    .requestModifier(PixivImageLoader.shared)
-                    .diskCacheExpiration(expiration.kingfisherExpiration)
-                    .memoryCacheExpiration(expiration.kingfisherExpiration)
-                    .fade(duration: 0.5)
-                    .placeholder {
-                        placeholderView
-                    }
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+                if shouldUseDirectConnection(url: url) {
+                    KFImage.source(.directNetwork(url))
+                        .diskCacheExpiration(expiration.kingfisherExpiration)
+                        .memoryCacheExpiration(expiration.kingfisherExpiration)
+                        .fade(duration: 0.5)
+                        .placeholder {
+                            placeholderView
+                        }
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    KFImage(url)
+                        .requestModifier(PixivImageLoader.shared)
+                        .diskCacheExpiration(expiration.kingfisherExpiration)
+                        .memoryCacheExpiration(expiration.kingfisherExpiration)
+                        .fade(duration: 0.5)
+                        .placeholder {
+                            placeholderView
+                        }
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                }
             }
         } else {
             placeholderView
