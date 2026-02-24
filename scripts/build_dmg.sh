@@ -38,7 +38,7 @@ if [ "$SHOW_HELP" = true ]; then
 fi
 
 PROJECT_NAME="Pixiv-SwiftUI"
-SCHEME_NAME="Pixiv-SwiftUI"
+SCHEME_NAME="Release"
 CONFIG="Release"
 BUILD_DIR="build"
 DMG_NAME="Pixiv-SwiftUI"

@@ -52,7 +52,7 @@ JOBS=$(sysctl -n hw.ncpu)
 if [ "$CLEAN" = true ]; then
     xcodebuild clean build \
         -project Pixiv-SwiftUI.xcodeproj \
-        -scheme Pixiv-SwiftUI \
+        -scheme Release \
         -sdk iphoneos \
         -configuration Release \
         CODE_SIGNING_ALLOWED=NO \
@@ -63,7 +63,7 @@ if [ "$CLEAN" = true ]; then
 else
     xcodebuild build \
         -project Pixiv-SwiftUI.xcodeproj \
-        -scheme Pixiv-SwiftUI \
+        -scheme Release \
         -sdk iphoneos \
         -configuration Release \
         CODE_SIGNING_ALLOWED=NO \
