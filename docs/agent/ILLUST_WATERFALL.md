@@ -16,7 +16,7 @@
 
 ```swift
 ScrollView {         // 外部滚动容器
-    LazyVStack {     // 外部虚拟容器（推荐）
+    VStack {         // 外部普通容器（必须是 VStack，不能是 LazyVStack）
         // 头部组件...
         
         WaterfallGrid(...) // 瀑布流组件本体
@@ -94,21 +94,27 @@ private func recalculateColumns() {
 
 ## 使用注意事项
 
-### 1. 外部容器
+### 1. 外部容器（极其重要）
 
-由于 `WaterfallGrid` 内部使用 `LazyVStack` 作为列容器，它能够处理大量数据的懒加载渲染。但是，如果在此组件上方或下方有其他内容，建议将其包裹在外部的 `LazyVStack` 中，以避免外部容器在初始化时一次性计算整个瀑布流的高度。
+由于 `WaterfallGrid` 内部已经使用了 `LazyVStack` 作为列容器，它本身就具备了懒加载渲染的能力。
+**绝对不要**将 `WaterfallGrid` 包裹在外部的 `LazyVStack` 中！
+在 SwiftUI 中，嵌套的 `LazyVStack` 会导致布局引擎在滚动时无法正确计算高度，从而引发严重的**滚动抽动（Jitter）**和**布局跳动**。
 
 **正确示例**:
 
 ```swift
 ScrollView {
-    LazyVStack { // 使用 LazyVStack 包裹
+    VStack { // 必须使用普通的 VStack
         HeaderView()
         
         WaterfallGrid(...)
         
+        // 加载更多触发器
         if isLoading {
-            ProgressView() // 只有滚动到底部才加载
+            LazyVStack { // 仅将底部的 ProgressView 包裹在 LazyVStack 中，或使用 onAppear 触发
+                ProgressView()
+                    .onAppear { loadMore() }
+            }
         }
     }
 }
@@ -117,6 +123,9 @@ ScrollView {
 ### 2. 加载更多 (Infinite Scroll)
 
 不要将 `loadMore` 触发器放在 `WaterfallGrid` 内部。应将其作为 `WaterfallGrid` 的兄弟视图放置在外部容器的底部。
+为了确保 `onAppear` 仅在滚动到底部时触发，你有两种选择：
+1. 将底部的 `ProgressView` 单独包裹在一个 `LazyVStack` 中。
+2. 在 `WaterfallGrid` 的 `content` 闭包中，为最后一个元素添加 `.onAppear` 触发器（推荐，更可靠）。
 
 ### 3. macOS 与 iOS 的列数差异
 
@@ -139,7 +148,7 @@ ScrollView {
 
 ## 常见问题排查
 
-- **布局跳动**: 检查 `SkeletonIllustWaterfallGrid` 的间距设置是否与 `WaterfallGrid` 一致。
-- **加载更多不触发**: 检查外部是否误用了 `VStack` 代替 `LazyVStack`，导致底部视图被提前初始化。
+- **布局跳动**: 检查 `SkeletonIllustWaterfallGrid` 的间距设置是否与 `WaterfallGrid` 一致。检查外部容器是否误用了 `LazyVStack`。
+- **加载更多不触发**: 检查外部是否误用了 `VStack` 代替 `LazyVStack` 包裹 `ProgressView`，导致底部视图被提前初始化。
 - **图片高度异常**: 确保 `heightProvider` 返回的 `aspectRatio` 不为 0 或 NaN。
 

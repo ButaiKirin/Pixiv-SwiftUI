@@ -86,12 +86,12 @@ final class DirectConnection: @unchecked Sendable {
         // 根据健康度对 IP 进行排序
         let ips = await health.rankIPs(rawIPs)
         let requestTimeout = timeout ?? defaultTimeout
-
-        print("[DirectConnection] 请求: \(method) \(host)\(path)")
+        print("[DirectConnection] 开始请求: \(method) \(host)\(path)")
 
         var lastError: Error?
         for ip in ips {
             do {
+                print("[DirectConnection] 正在尝试 IP: \(ip)")
                 let result = try await performRequest(
                     ip: ip,
                     port: endpoint.port,
@@ -105,12 +105,17 @@ final class DirectConnection: @unchecked Sendable {
                 )
                 // 成功则汇报健康
                 await health.reportSuccess(ip: ip)
+                print("[DirectConnection] IP \(ip) 请求成功")
                 return result
             } catch {
-                print("[DirectConnection] IP \(ip) 失败: \(error)")
+                print("[DirectConnection] IP \(ip) 失败，错误: \(error.localizedDescription)")
                 // 失败则降级
                 await health.reportFailure(ip: ip)
                 lastError = error
+
+                if let dcError = error as? DirectConnectionError {
+                    print("[DirectConnection] DirectConnectionError: \(dcError)")
+                }
 
                 // 如果是证书错误或协议错误，可能不是 IP 的锅，但通常这里是网络连接超时或彻底断开
                 if let nwError = error as? NWError {

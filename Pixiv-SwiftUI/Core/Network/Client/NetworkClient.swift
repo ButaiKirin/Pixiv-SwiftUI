@@ -170,8 +170,9 @@ final class NetworkClient {
         }
 
         let endpoint = endpointForHost(host)
-        let path = url.path.isEmpty ? "/" : url.path
-        let query = url.query.map { "?\($0)" } ?? ""
+        
+        let path = url.path(percentEncoded: true).isEmpty ? "/" : url.path(percentEncoded: true)
+        let query = url.query(percentEncoded: true).map { "?\($0)" } ?? ""
         let fullPath = path + query
 
         let (data, httpResponse) = try await DirectConnection.shared.request(
@@ -224,8 +225,8 @@ final class NetworkClient {
         }
 
         let endpoint = endpointForHost(host)
-        let path = url.path.isEmpty ? "/" : url.path
-        let query = url.query.map { "?\($0)" } ?? ""
+        let path = url.path(percentEncoded: true).isEmpty ? "/" : url.path(percentEncoded: true)
+        let query = url.query(percentEncoded: true).map { "?\($0)" } ?? ""
         let fullPath = path + query
 
         var allHeaders = headers
@@ -305,8 +306,8 @@ final class NetworkClient {
         }
 
         let endpoint = endpointForHost(host)
-        let path = url.path.isEmpty ? "/" : url.path
-        let query = url.query.map { "?\($0)" } ?? ""
+        let path = url.path(percentEncoded: true).isEmpty ? "/" : url.path(percentEncoded: true)
+        let query = url.query(percentEncoded: true).map { "?\($0)" } ?? ""
         let fullPath = path + query
 
         let (data, httpResponse) = try await DirectConnection.shared.request(
@@ -477,8 +478,8 @@ final class NetworkClient {
         }
 
         let endpoint = endpointForHost(host)
-        let path = url.path.isEmpty ? "/" : url.path
-        let query = url.query.map { "?\($0)" } ?? ""
+        let path = url.path(percentEncoded: true).isEmpty ? "/" : url.path(percentEncoded: true)
+        let query = url.query(percentEncoded: true).map { "?\($0)" } ?? ""
         let fullPath = path + query
 
         let (data, httpResponse) = try await DirectConnection.shared.request(

@@ -120,6 +120,11 @@ struct IllustDetailRelatedSection: View {
                 Text("加载失败")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                if let error = relatedIllustError {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                }
                 Button("重试") {
                     fetchRelatedIllusts()
                 }
@@ -142,7 +147,7 @@ struct IllustDetailRelatedSection: View {
     }
 
     private var illustsGridView: some View {
-        LazyVStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             WaterfallGrid(
                 data: filteredIllusts,
                 columnCount: actualColumnCount,
@@ -156,32 +161,37 @@ struct IllustDetailRelatedSection: View {
             }
 
             if hasMoreRelated {
-                HStack {
-                    Spacer()
-                    if loadMoreError != nil {
-                        Button {
-                            loadMoreRelatedIllusts()
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.title2)
-                                Text("加载失败，点击重试")
-                                    .font(.caption)
-                            }
-                            .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        ProgressView()
-                            .id(relatedNextUrl)
-                            .onAppear {
-                                print("[IllustDetailRelatedSection] loadMore triggered - nextUrl: \(relatedNextUrl ?? "nil")")
+                LazyVStack {
+                    HStack {
+                        Spacer()
+                        if let error = loadMoreError {
+                            Button {
                                 loadMoreRelatedIllusts()
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.title2)
+                                    Text("加载失败，点击重试")
+                                        .font(.caption)
+                                    Text(error)
+                                        .font(.caption2)
+                                        .foregroundColor(.red)
+                                }
+                                .foregroundColor(.secondary)
                             }
+                            .buttonStyle(.plain)
+                        } else {
+                            ProgressView()
+                                .id(relatedNextUrl)
+                                .onAppear {
+                                    print("[IllustDetailRelatedSection] loadMore triggered - nextUrl: \(relatedNextUrl ?? "nil")")
+                                    loadMoreRelatedIllusts()
+                                }
+                        }
+                        Spacer()
                     }
-                    Spacer()
+                    .padding(.vertical)
                 }
-                .padding(.vertical)
             } else if !filteredIllusts.isEmpty {
                 Text(String(localized: "已经到底了"))
                     .font(.caption)

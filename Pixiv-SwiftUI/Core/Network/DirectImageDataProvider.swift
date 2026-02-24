@@ -43,8 +43,8 @@ final class DirectImageDataProvider: ImageDataProvider {
             throw KingfisherError.imageSettingError(reason: .emptySource)
         }
 
-        let path = url.path
-        let query = url.query.map { "?\($0)" } ?? ""
+        let path = url.path(percentEncoded: true)
+        let query = url.query(percentEncoded: true).map { "?\($0)" } ?? ""
         let fullPath = path + query
 
         var headers = [String: String]()

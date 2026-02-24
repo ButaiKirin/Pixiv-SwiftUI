@@ -23,42 +23,53 @@ struct WaterfallGrid<Data, Content>: View where Data: RandomAccessCollection, Da
         if let width = width {
             _containerWidth = State(initialValue: width)
         }
+        
+        // 尝试初始化时同步计算一次，避免 onAppear 时的闪烁
+        let initialColumns = Self.calculateColumnsSynchronously(
+            data: data,
+            columnCount: columnCount,
+            aspectRatio: aspectRatio
+        )
+        _columns = State(initialValue: initialColumns)
     }
 
-    private func recalculateColumns() {
+    private static func calculateColumnsSynchronously(
+        data: Data,
+        columnCount: Int,
+        aspectRatio: ((Data.Element) -> CGFloat)?
+    ) -> [[Data.Element]] {
         var result = Array(repeating: [Data.Element](), count: columnCount)
         var columnHeights = Array(repeating: CGFloat(0), count: columnCount)
 
         guard columnCount > 0 else {
-            columns = result
-            return
+            return result
         }
 
-        // 如果没有提供高度提供者，退回到简单的取模分布
         if aspectRatio == nil {
             for (index, item) in data.enumerated() {
                 result[index % columnCount].append(item)
             }
-            columns = result
-            return
+            return result
         }
 
-        // 使用最短列优先算法
         for item in data {
-            // 找到当前高度最小的列
             if let minIndex = columnHeights.indices.min(by: { columnHeights[$0] < columnHeights[$1] }) {
                 result[minIndex].append(item)
-
-                // 累加高度
-                // 这里约定 aspectRatio 返回 (width / height)
-                // 那么 itemHeight = columnWidth / aspectRatio
                 if let ratio = aspectRatio?(item) {
-                    let itemHeight = (ratio > 0) ? (1.0 / ratio) : 1.0 // 归一化高度
+                    let itemHeight = (ratio > 0) ? (1.0 / ratio) : 1.0
                     columnHeights[minIndex] += itemHeight
                 }
             }
         }
-        columns = result
+        return result
+    }
+
+    private func recalculateColumns() {
+        columns = Self.calculateColumnsSynchronously(
+            data: data,
+            columnCount: columnCount,
+            aspectRatio: aspectRatio
+        )
     }
 
     private var safeColumnWidth: CGFloat {

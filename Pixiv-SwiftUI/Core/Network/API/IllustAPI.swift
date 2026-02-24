@@ -172,7 +172,8 @@ final class IllustAPI {
         let response = try await client.get(
             from: url,
             headers: authHeaders,
-            responseType: Response.self
+            responseType: Response.self,
+            isLongContent: true
         )
 
         return (response.illusts, response.nextUrl)
