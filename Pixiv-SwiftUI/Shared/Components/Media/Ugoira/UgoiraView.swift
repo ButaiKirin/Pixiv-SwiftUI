@@ -45,7 +45,8 @@ struct UgoiraView: View {
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
         .onAppear {
-            if shouldAutoPlay && !isPlaying {
+            if shouldAutoPlay {
+                isPlaying = true
                 preloadAndPlay()
             }
         }
@@ -84,8 +85,9 @@ struct UgoiraView: View {
 
             await MainActor.run {
                 isReady = true
-                isPlaying = true
-                startPlayback()
+                if isPlaying {
+                    startPlayback()
+                }
             }
         }
     }
@@ -121,7 +123,6 @@ struct UgoiraView: View {
 
     private func startPlayback() {
         guard !frameURLs.isEmpty else { return }
-        isPlaying = true
 
         #if os(iOS)
         displayLink = CADisplayLink(target: DisplayLinkTarget { [self] timestamp in
@@ -142,7 +143,6 @@ struct UgoiraView: View {
         displayLink = nil
         animationTimer?.invalidate()
         animationTimer = nil
-        isPlaying = false
     }
 
     #if os(iOS)

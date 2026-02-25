@@ -11,7 +11,6 @@ struct UgoiraLoader: View {
     @State private var showPlayer = false
     @State private var isInlinePlaying = false
     @State private var shouldAutoStartInlinePlayback = false
-    @State private var lastControlTapTime = Date.distantPast
 
     init(illust: Illusts, expiration: CacheExpiration = .hours(1)) {
         self.illust = illust
@@ -25,20 +24,19 @@ struct UgoiraLoader: View {
 
     var body: some View {
         ZStack {
-            content
-                .onTapGesture {
-                    guard Date().timeIntervalSince(lastControlTapTime) > 0.35 else {
-                        return
-                    }
-
-                    if store.isReady {
-                        #if os(macOS)
-                        ImageViewerWindowManager.shared.showUgoira(illust: illust, store: store)
-                        #else
-                        showFullscreen = true
-                        #endif
-                    }
+            Button(action: {
+                if store.isReady {
+                    #if os(macOS)
+                    ImageViewerWindowManager.shared.showUgoira(illust: illust, store: store)
+                    #else
+                    showFullscreen = true
+                    #endif
                 }
+            }) {
+                content
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 
             statusOverlay
         }
@@ -141,6 +139,7 @@ struct UgoiraLoader: View {
                     .padding(8)
                     .background(Color.orange.opacity(0.8))
                     .clipShape(Circle())
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .padding(12)
@@ -164,18 +163,17 @@ struct UgoiraLoader: View {
                             .fill(.ultraThinMaterial)
                     }
                 }
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .padding(12)
     }
 
     private func handlePlayAction() {
-        lastControlTapTime = Date()
-
         if !store.isReady {
             showPlayer = true
             shouldAutoStartInlinePlayback = true
-            isInlinePlaying = false
+            isInlinePlaying = true
             store.startDownload()
             return
         }
@@ -183,17 +181,11 @@ struct UgoiraLoader: View {
         if !showPlayer {
             showPlayer = true
             shouldAutoStartInlinePlayback = true
-            isInlinePlaying = false
+            isInlinePlaying = true
             return
         }
 
-        if isInlinePlaying {
-            shouldAutoStartInlinePlayback = false
-            isInlinePlaying = false
-        } else {
-            shouldAutoStartInlinePlayback = true
-            isInlinePlaying = true
-        }
+        isInlinePlaying.toggle()
     }
 }
 
@@ -204,7 +196,6 @@ struct UgoiraFullscreenView: View {
     let expiration: CacheExpiration
     @Environment(UserSettingStore.self) private var userSettingStore
 
-    @State private var isPaused = false
     @State private var isPlaying = false
 
     var body: some View {
@@ -212,15 +203,30 @@ struct UgoiraFullscreenView: View {
             Color.black.ignoresSafeArea()
 
             if store.isReady, !store.frameURLs.isEmpty {
-                UgoiraView(
-                    frameURLs: store.frameURLs,
-                    frameDelays: store.frameDelays,
-                    aspectRatio: aspectRatio,
-                    expiration: expiration,
-                    shouldAutoPlay: userSettingStore.userSetting.autoPlayUgoira,
-                    isPlaying: $isPlaying
-                )
-                .ignoresSafeArea()
+                ZStack {
+                    UgoiraView(
+                        frameURLs: store.frameURLs,
+                        frameDelays: store.frameDelays,
+                        aspectRatio: aspectRatio,
+                        expiration: expiration,
+                        shouldAutoPlay: true,
+                        isPlaying: $isPlaying
+                    )
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        isPlaying.toggle()
+                    }
+
+                    if !isPlaying {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.white)
+                            .padding(20)
+                            .background(.black.opacity(0.5))
+                            .clipShape(Circle())
+                            .allowsHitTesting(false)
+                    }
+                }
             } else {
                 Group {
                     switch store.status {
@@ -266,6 +272,7 @@ struct UgoiraFullscreenView: View {
                             .frame(width: 44, height: 44)
                             .background(.ultraThinMaterial)
                             .clipShape(Circle())
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
 
@@ -277,10 +284,10 @@ struct UgoiraFullscreenView: View {
                         }
 
                         if !store.frameURLs.isEmpty {
-                            Button(action: { isPaused.toggle() }) {
+                            Button(action: { isPlaying.toggle() }) {
                                 Label(
-                                    isPaused ? "继续播放" : "暂停播放",
-                                    systemImage: isPaused ? "play.fill" : "pause.fill"
+                                    isPlaying ? "暂停播放" : "继续播放",
+                                    systemImage: isPlaying ? "pause.fill" : "play.fill"
                                 )
                             }
                         }
@@ -291,6 +298,7 @@ struct UgoiraFullscreenView: View {
                             .frame(width: 44, height: 44)
                             .background(.ultraThinMaterial)
                             .clipShape(Circle())
+                            .contentShape(Circle())
                     }
                     #if os(macOS)
                     .menuStyle(.borderlessButton)
