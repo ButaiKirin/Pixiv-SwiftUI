@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import Observation
 
 enum NetworkMode: String, Codable, CaseIterable, Identifiable {
     case normal
@@ -36,10 +37,11 @@ enum NetworkMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-final class NetworkModeStore: ObservableObject {
+@Observable
+final class NetworkModeStore {
     static let shared = NetworkModeStore()
 
-    @Published var currentMode: NetworkMode {
+    var currentMode: NetworkMode {
         didSet {
             UserDefaults.standard.set(currentMode.rawValue, forKey: networkModeKey)
         }

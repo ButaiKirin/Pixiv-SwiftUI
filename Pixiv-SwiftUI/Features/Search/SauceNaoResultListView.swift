@@ -1,9 +1,10 @@
 import SwiftUI
+import Observation
 import Combine
 
 struct SauceNaoResultListView: View {
     let requestId: UUID
-    @StateObject private var store: SauceNaoResultListStore
+    @State private var store: SauceNaoResultListStore
     @Environment(UserSettingStore.self) private var settingStore
     #if os(macOS)
     @State private var dynamicColumnCount: Int = 4
@@ -13,7 +14,7 @@ struct SauceNaoResultListView: View {
 
     init(requestId: UUID) {
         self.requestId = requestId
-        self._store = StateObject(wrappedValue: SauceNaoResultListStore(requestId: requestId))
+        self._store = State(initialValue: SauceNaoResultListStore(requestId: requestId))
     }
 
     private var filteredItems: [SauceNaoResultItem] {
@@ -119,13 +120,14 @@ private struct SauceNaoResultWaterfallCard: View {
 }
 
 @MainActor
-private final class SauceNaoResultListStore: ObservableObject {
-    @Published var items: [SauceNaoResultItem] = []
-    @Published var matches: [SauceNaoMatch] = []
-    @Published var isLoading = false
-    @Published var hasSearched = false
-    @Published var errorMessage: String?
-    @Published var failedDetailCount = 0
+@Observable
+private final class SauceNaoResultListStore {
+    var items: [SauceNaoResultItem] = []
+    var matches: [SauceNaoMatch] = []
+    var isLoading = false
+    var hasSearched = false
+    var errorMessage: String?
+    var failedDetailCount = 0
 
     private let requestId: UUID
     private var hasLoaded = false

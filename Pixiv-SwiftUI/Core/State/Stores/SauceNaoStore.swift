@@ -1,13 +1,15 @@
+import Observation
 import Combine
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
 @MainActor
-final class SauceNaoStore: ObservableObject {
-    @Published var isSearching = false
-    @Published var results: [SauceNaoMatch] = []
-    @Published var errorMessage: String?
+@Observable
+final class SauceNaoStore {
+    var isSearching = false
+    var results: [SauceNaoMatch] = []
+    var errorMessage: String?
 
     private let api = SauceNAOAPI()
 

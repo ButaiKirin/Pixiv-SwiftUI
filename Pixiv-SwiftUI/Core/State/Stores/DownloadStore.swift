@@ -1,3 +1,4 @@
+import Observation
 import Foundation
 import Combine
 import os.log
@@ -8,11 +9,12 @@ import AppKit
 #endif
 
 @MainActor
-final class DownloadStore: ObservableObject {
+@Observable
+final class DownloadStore {
     static let shared = DownloadStore()
 
-    @Published var tasks: [DownloadTask] = []
-    @Published var isProcessing = false
+    var tasks: [DownloadTask] = []
+    var isProcessing = false
 
     private var runningTasks: [UUID: Task<Void, Never>] = [:]
     private let maxConcurrentTasks: Int

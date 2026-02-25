@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct BookmarksPage: View {
-    @StateObject private var store = BookmarksStore()
+    @State private var store = BookmarksStore()
     @State private var showProfilePanel = false
     @State private var lastScrollOffset: CGFloat = 0
     @State private var isPickerVisible: Bool = true

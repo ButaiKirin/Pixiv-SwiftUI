@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NovelRankingPreview: View {
-    @ObservedObject var store: NovelStore
+    var store: NovelStore
 
     private var novels: [Novel] {
         store.dailyRankingNovels

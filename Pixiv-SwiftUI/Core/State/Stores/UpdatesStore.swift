@@ -1,18 +1,20 @@
+import Observation
 import Foundation
 import SwiftUI
 import Combine
 
 @MainActor
-class UpdatesStore: ObservableObject {
-    @Published var updates: [Illusts] = []
-    @Published var following: [UserPreviews] = []
+@Observable
+class UpdatesStore {
+    var updates: [Illusts] = []
+    var following: [UserPreviews] = []
 
-    @Published var isLoadingUpdates = false
-    @Published var isLoadingFollowing = false
-    @Published var hasFetchedUpdates = false
-    @Published var hasFetchedFollowing = false
+    var isLoadingUpdates = false
+    var isLoadingFollowing = false
+    var hasFetchedUpdates = false
+    var hasFetchedFollowing = false
 
-    @Published var currentRestrict: String = "public"
+    var currentRestrict: String = "public"
 
     var nextUrlUpdates: String?
     var nextUrlFollowing: String?

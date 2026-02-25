@@ -1,3 +1,4 @@
+import Observation
 import Foundation
 import Combine
 import zlib
@@ -38,14 +39,15 @@ enum UgoiraStatus: Equatable {
 }
 
 @MainActor
-final class UgoiraStore: ObservableObject {
+@Observable
+final class UgoiraStore {
     let illustId: Int
     let expiration: CacheExpiration
 
-    @Published var status: UgoiraStatus = .idle
-    @Published var metadata: UgoiraMetadata?
-    @Published var frameURLs: [URL] = []
-    @Published var frameDelays: [TimeInterval] = []
+    var status: UgoiraStatus = .idle
+    var metadata: UgoiraMetadata?
+    var frameURLs: [URL] = []
+    var frameDelays: [TimeInterval] = []
 
     private var downloadTask: Task<Void, Never>?
     private let temporaryDir: URL

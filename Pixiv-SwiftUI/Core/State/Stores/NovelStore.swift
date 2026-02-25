@@ -1,3 +1,4 @@
+import Observation
 import Foundation
 import SwiftUI
 import Combine
@@ -5,22 +6,23 @@ import SwiftData
 import os.log
 
 @MainActor
-final class NovelStore: ObservableObject {
+@Observable
+final class NovelStore {
     static let shared = NovelStore()
 
-    @Published var recomNovels: [Novel] = []
-    @Published var followingNovels: [Novel] = []
-    @Published var bookmarkNovels: [Novel] = []
+    var recomNovels: [Novel] = []
+    var followingNovels: [Novel] = []
+    var bookmarkNovels: [Novel] = []
 
-    @Published var dailyRankingNovels: [Novel] = []
-    @Published var dailyMaleRankingNovels: [Novel] = []
-    @Published var dailyFemaleRankingNovels: [Novel] = []
-    @Published var weeklyRankingNovels: [Novel] = []
+    var dailyRankingNovels: [Novel] = []
+    var dailyMaleRankingNovels: [Novel] = []
+    var dailyFemaleRankingNovels: [Novel] = []
+    var weeklyRankingNovels: [Novel] = []
 
-    @Published var isLoadingRecom = false
-    @Published var isLoadingFollowing = false
-    @Published var isLoadingBookmark = false
-    @Published var isLoadingRanking = false
+    var isLoadingRecom = false
+    var isLoadingFollowing = false
+    var isLoadingBookmark = false
+    var isLoadingRanking = false
 
     var nextUrlRecom: String?
     var nextUrlFollowing: String?

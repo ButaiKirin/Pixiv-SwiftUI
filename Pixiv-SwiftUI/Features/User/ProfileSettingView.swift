@@ -180,7 +180,7 @@ struct ProfileSettingView: View {
         }
     }
 
-    @ObservedObject private var networkModeStore = NetworkModeStore.shared
+    @State private var networkModeStore = NetworkModeStore.shared
 
     private var featureSection: some View {
         Section {

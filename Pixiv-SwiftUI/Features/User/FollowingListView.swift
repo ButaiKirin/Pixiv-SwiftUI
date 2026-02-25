@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FollowingListView: View {
-    @StateObject var store: FollowingListStore
+    @State var store: FollowingListStore
     @State private var isRefreshing: Bool = false
     let userId: String
 

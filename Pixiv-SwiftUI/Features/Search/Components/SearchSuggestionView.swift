@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 搜索建议视图，用于在搜索栏中显示提示、快捷跳转等
 struct SearchSuggestionView: View {
-    @ObservedObject var store: SearchStore
+    var store: SearchStore
     var accountStore: AccountStore
     @Binding var pendingIllustId: Int?
     @Binding var pendingUserId: String?

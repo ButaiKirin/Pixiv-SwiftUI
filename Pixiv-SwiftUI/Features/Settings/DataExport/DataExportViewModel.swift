@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Observation
 import Combine
 import UniformTypeIdentifiers
 
@@ -34,18 +35,19 @@ enum ExportItemType: String, CaseIterable, Identifiable {
 }
 
 @MainActor
-final class DataExportViewModel: ObservableObject {
-    @Published var isExporting = false
-    @Published var isImporting = false
-    @Published var showConflictDialog = false
-    @Published var conflictItemType: ExportItemType?
-    @Published var pendingImportURL: URL?
-    @Published var showShareSheet = false
-    @Published var shareURL: URL?
-    @Published var showToast = false
-    @Published var toastMessage = ""
-    @Published var showError = false
-    @Published var errorMessage = ""
+@Observable
+final class DataExportViewModel {
+    var isExporting = false
+    var isImporting = false
+    var showConflictDialog = false
+    var conflictItemType: ExportItemType?
+    var pendingImportURL: URL?
+    var showShareSheet = false
+    var shareURL: URL?
+    var showToast = false
+    var toastMessage = ""
+    var showError = false
+    var errorMessage = ""
 
     let exportService = DataExportService.shared
 

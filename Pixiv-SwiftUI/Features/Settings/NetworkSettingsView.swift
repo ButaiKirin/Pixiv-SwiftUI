@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NetworkSettingsView: View {
-    @ObservedObject private var networkModeStore = NetworkModeStore.shared
+    @State private var networkModeStore = NetworkModeStore.shared
 
     var body: some View {
         Form {

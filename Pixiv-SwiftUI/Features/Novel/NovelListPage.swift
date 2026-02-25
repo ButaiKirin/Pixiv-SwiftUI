@@ -3,7 +3,7 @@ import Combine
 
 struct NovelListPage: View {
     let listType: NovelListType
-    @StateObject private var store = NovelStore()
+    @State private var store = NovelStore()
     @State private var path = NavigationPath()
     @State private var novels: [Novel] = []
     @State private var nextUrl: String?

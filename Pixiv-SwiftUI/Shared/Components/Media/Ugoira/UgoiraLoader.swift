@@ -5,7 +5,7 @@ struct UgoiraLoader: View {
     let illust: Illusts
     let expiration: CacheExpiration
 
-    @StateObject private var store: UgoiraStore
+    @State private var store: UgoiraStore
     @Environment(UserSettingStore.self) private var userSettingStore
     @State private var showFullscreen = false
     @State private var showPlayer = false
@@ -15,7 +15,7 @@ struct UgoiraLoader: View {
     init(illust: Illusts, expiration: CacheExpiration = .hours(1)) {
         self.illust = illust
         self.expiration = expiration
-        self._store = StateObject(wrappedValue: UgoiraStore(illustId: illust.id, expiration: expiration))
+        self._store = State(initialValue: UgoiraStore(illustId: illust.id, expiration: expiration))
     }
 
     private var aspectRatio: CGFloat {
@@ -190,7 +190,7 @@ struct UgoiraLoader: View {
 }
 
 struct UgoiraFullscreenView: View {
-    @ObservedObject var store: UgoiraStore
+    var store: UgoiraStore
     @Binding var isPresented: Bool
     let aspectRatio: CGFloat
     let expiration: CacheExpiration

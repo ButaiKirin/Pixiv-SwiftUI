@@ -1,12 +1,14 @@
+import Observation
 import Foundation
 import SwiftUI
 import Combine
 
 @MainActor
-class BookmarksStore: ObservableObject {
-    @Published var bookmarks: [Illusts] = []
-    @Published var isLoadingBookmarks = false
-    @Published var bookmarkRestrict: String = "public"
+@Observable
+class BookmarksStore {
+    var bookmarks: [Illusts] = []
+    var isLoadingBookmarks = false
+    var bookmarkRestrict: String = "public"
 
     var nextUrlBookmarks: String?
     private var loadingNextUrl: String?

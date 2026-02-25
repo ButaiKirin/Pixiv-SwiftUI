@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 
 struct UgoiraWindowContent: View {
     let illust: Illusts
-    @ObservedObject var store: UgoiraStore
+    var store: UgoiraStore
     let onClose: () -> Void
 
     @State private var isHovering = false
@@ -209,7 +209,7 @@ struct UgoiraBottomStatusBar: View {
 }
 
 struct ExportPanel: View {
-    @ObservedObject var store: UgoiraStore
+    var store: UgoiraStore
     @Binding var isPresented: Bool
 
     @State private var isExporting = false

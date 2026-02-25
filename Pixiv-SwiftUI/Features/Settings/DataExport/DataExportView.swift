@@ -6,7 +6,7 @@ import AppKit
 #endif
 
 struct DataExportView: View {
-    @StateObject private var viewModel = DataExportViewModel()
+    @State private var viewModel = DataExportViewModel()
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

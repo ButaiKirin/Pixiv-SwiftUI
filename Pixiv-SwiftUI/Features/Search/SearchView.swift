@@ -5,7 +5,7 @@ import PhotosUI
 #endif
 
 struct SearchView: View {
-    @StateObject private var store = SearchStore()
+    @State private var store = SearchStore()
     @State private var selectedTag: String = ""
     @State private var showClearHistoryConfirmation = false
     @State private var showBlockToast = false
@@ -156,6 +156,7 @@ struct SearchView: View {
     }
 
     var body: some View {
+        @Bindable var store = store
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 #if os(iOS)

@@ -1,35 +1,42 @@
 import SwiftUI
 import Combine
+import Observation
 
 @MainActor
-class SearchStore: ObservableObject {
-    @Published var searchText: String = ""
-    @Published var searchHistory: [SearchTag] = []
-    @Published var suggestions: [UnifiedSearchSuggestion] = []
-    @Published var trendTags: [TrendTag] = []
-    @Published var isLoadingTrendTags: Bool = false
-    @Published var illustResults: [Illusts] = []
-    @Published var userResults: [UserPreviews] = []
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String?
+@Observable
+class SearchStore {
+    var searchText: String = "" {
+        didSet {
+            searchTextSubject.send(searchText)
+        }
+    }
+    var searchHistory: [SearchTag] = []
+    var suggestions: [UnifiedSearchSuggestion] = []
+    var trendTags: [TrendTag] = []
+    var isLoadingTrendTags: Bool = false
+    var illustResults: [Illusts] = []
+    var userResults: [UserPreviews] = []
+    var isLoading: Bool = false
+    var errorMessage: String?
 
     // 分页状态
-    @Published var illustOffset: Int = 0
-    @Published var illustLimit: Int = 30
-    @Published var illustHasMore: Bool = false
-    @Published var isLoadingMoreIllusts: Bool = false
+    var illustOffset: Int = 0
+    var illustLimit: Int = 30
+    var illustHasMore: Bool = false
+    var isLoadingMoreIllusts: Bool = false
 
-    @Published var userOffset: Int = 0
-    @Published var userHasMore: Bool = false
-    @Published var isLoadingMoreUsers: Bool = false
+    var userOffset: Int = 0
+    var userHasMore: Bool = false
+    var isLoadingMoreUsers: Bool = false
 
-    @Published var novelResults: [Novel] = []
-    @Published var novelOffset: Int = 0
-    @Published var novelLimit: Int = 30
-    @Published var novelHasMore: Bool = false
-    @Published var isLoadingMoreNovels: Bool = false
+    var novelResults: [Novel] = []
+    var novelOffset: Int = 0
+    var novelLimit: Int = 30
+    var novelHasMore: Bool = false
+    var isLoadingMoreNovels: Bool = false
 
     private var cancellables = Set<AnyCancellable>()
+    private let searchTextSubject = PassthroughSubject<String, Never>()
     private let api = PixivAPI.shared
     private let cache = CacheManager.shared
     private let suggestionManager = SearchSuggestionManager.shared
@@ -39,7 +46,7 @@ class SearchStore: ObservableObject {
     init() {
         loadSearchHistory()
 
-        $searchText
+        searchTextSubject
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] text in
                 guard let self = self else { return }

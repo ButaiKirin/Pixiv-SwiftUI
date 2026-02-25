@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct UpdatesPage: View {
-    @StateObject private var store = UpdatesStore()
+    @State private var store = UpdatesStore()
     @State private var path = NavigationPath()
     @State private var showProfilePanel = false
     @State private var showAuthView = false

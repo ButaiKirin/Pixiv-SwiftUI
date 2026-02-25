@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FollowingHorizontalList: View {
-    @ObservedObject var store: UpdatesStore
+    var store: UpdatesStore
     @Binding var path: NavigationPath
 
     var body: some View {

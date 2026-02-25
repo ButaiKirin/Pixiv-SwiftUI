@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NovelRankingPage: View {
-    @StateObject private var store = NovelStore()
+    @State private var store = NovelStore()
     @State private var selectedMode: NovelRankingMode = .day
 
     var body: some View {
@@ -45,7 +45,7 @@ struct NovelRankingPage: View {
 }
 
 struct NovelRankingList: View {
-    @ObservedObject var store: NovelStore
+    var store: NovelStore
     let mode: NovelRankingMode
 
     private var novels: [Novel] {

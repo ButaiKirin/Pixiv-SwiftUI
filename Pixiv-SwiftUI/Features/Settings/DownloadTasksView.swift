@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DownloadTasksView: View {
-    @StateObject private var downloadStore = DownloadStore.shared
+    @State private var downloadStore = DownloadStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showingClearAlert = false
     @State private var showingClearCompletedAlert = false

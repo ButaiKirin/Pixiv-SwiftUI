@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NovelPage: View {
-    @ObservedObject private var store = NovelStore.shared
+    private var store = NovelStore.shared
     @State private var path = NavigationPath()
     @State private var showProfilePanel = false
     @State private var showAuthView = false

@@ -2,7 +2,7 @@ import SwiftUI
 import Kingfisher
 
 struct DownloadTaskRow: View {
-    @ObservedObject var downloadStore: DownloadStore
+    var downloadStore: DownloadStore
     @Environment(ThemeManager.self) var themeManager
     let task: DownloadTask
 
