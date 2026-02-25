@@ -124,6 +124,8 @@ final class PixivAPI {
         word: String,
         searchTarget: String = "partial_match_for_tags",
         sort: String = "date_desc",
+        startDate: Date? = nil,
+        endDate: Date? = nil,
         offset: Int = 0,
         limit: Int = 30
     ) async throws -> [Illusts] {
@@ -132,6 +134,8 @@ final class PixivAPI {
             word: word,
             searchTarget: searchTarget,
             sort: sort,
+            startDate: startDate,
+            endDate: endDate,
             offset: offset,
             limit: limit
         )
@@ -388,6 +392,8 @@ final class PixivAPI {
         word: String,
         searchTarget: String = "partial_match_for_tags",
         sort: String = "date_desc",
+        startDate: Date? = nil,
+        endDate: Date? = nil,
         offset: Int = 0,
         limit: Int = 30
     ) async throws -> [Novel] {
@@ -396,6 +402,8 @@ final class PixivAPI {
             word: word,
             searchTarget: searchTarget,
             sort: sort,
+            startDate: startDate,
+            endDate: endDate,
             offset: offset,
             limit: limit
         )

@@ -107,17 +107,29 @@ final class SearchAPI {
         word: String,
         searchTarget: String = "partial_match_for_tags",
         sort: String = "date_desc",
+        startDate: Date? = nil,
+        endDate: Date? = nil,
         offset: Int = 0,
         limit: Int = 30
     ) async throws -> [Illusts] {
         var components = URLComponents(string: APIEndpoint.baseURL + APIEndpoint.searchIllust)
-        components?.queryItems = [
+        var queryItems = [
             URLQueryItem(name: "word", value: word),
             URLQueryItem(name: "search_target", value: searchTarget),
             URLQueryItem(name: "sort", value: sort),
             URLQueryItem(name: "offset", value: String(offset)),
             URLQueryItem(name: "limit", value: String(limit)),
         ]
+
+        if let formattedStartDate = formatDate(startDate) {
+            queryItems.append(URLQueryItem(name: "start_date", value: formattedStartDate))
+        }
+
+        if let formattedEndDate = formatDate(endDate) {
+            queryItems.append(URLQueryItem(name: "end_date", value: formattedEndDate))
+        }
+
+        components?.queryItems = queryItems
 
         guard let url = components?.url else {
             throw NetworkError.invalidResponse
@@ -173,11 +185,13 @@ final class SearchAPI {
         word: String,
         searchTarget: String = "partial_match_for_tags",
         sort: String = "date_desc",
+        startDate: Date? = nil,
+        endDate: Date? = nil,
         offset: Int = 0,
         limit: Int = 30
     ) async throws -> [Novel] {
         var components = URLComponents(string: APIEndpoint.baseURL + "/v1/search/novel")
-        components?.queryItems = [
+        var queryItems = [
             URLQueryItem(name: "word", value: word),
             URLQueryItem(name: "search_target", value: searchTarget),
             URLQueryItem(name: "sort", value: sort),
@@ -186,6 +200,16 @@ final class SearchAPI {
             URLQueryItem(name: "offset", value: String(offset)),
             URLQueryItem(name: "limit", value: String(limit)),
         ]
+
+        if let formattedStartDate = formatDate(startDate) {
+            queryItems.append(URLQueryItem(name: "start_date", value: formattedStartDate))
+        }
+
+        if let formattedEndDate = formatDate(endDate) {
+            queryItems.append(URLQueryItem(name: "end_date", value: formattedEndDate))
+        }
+
+        components?.queryItems = queryItems
 
         guard let url = components?.url else {
             throw NetworkError.invalidResponse
@@ -202,5 +226,13 @@ final class SearchAPI {
         )
 
         return response.novels
+    }
+
+    private func formatDate(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: date)
     }
 }

@@ -7,6 +7,9 @@ struct SearchResultView: View {
     @State private var sortOption: SearchSortOption = .dateDesc
     @State private var novelSortOption: SearchSortOption = .dateDesc
     @State private var bookmarkFilter: BookmarkFilterOption = .none
+    @State private var searchTarget: SearchTargetOption = .partialMatchForTags
+    @State private var startDate: Date?
+    @State private var endDate: Date?
     @Environment(UserSettingStore.self) var settingStore
     @Environment(AccountStore.self) var accountStore
     @Environment(ThemeManager.self) var themeManager
@@ -42,6 +45,58 @@ struct SearchResultView: View {
         #else
         12
         #endif
+    }
+
+    private func performIllustSearch() async {
+        await store.search(
+            word: word,
+            sort: sortOption.rawValue,
+            bookmarkFilter: bookmarkFilter,
+            searchTarget: searchTarget,
+            startDate: startDate,
+            endDate: endDate
+        )
+    }
+
+    private func performNovelSearch() async {
+        await store.searchNovels(
+            word: word,
+            sort: novelSortOption.rawValue,
+            bookmarkFilter: bookmarkFilter,
+            searchTarget: searchTarget,
+            startDate: startDate,
+            endDate: endDate
+        )
+    }
+
+    private func performCurrentTabSearch() async {
+        if selectedTab == 0 {
+            await performIllustSearch()
+        } else if selectedTab == 1 {
+            await performNovelSearch()
+        }
+    }
+
+    private func loadMoreIllustResults() async {
+        await store.loadMoreIllusts(
+            word: word,
+            sort: sortOption.rawValue,
+            bookmarkFilter: bookmarkFilter,
+            searchTarget: searchTarget,
+            startDate: startDate,
+            endDate: endDate
+        )
+    }
+
+    private func loadMoreNovelResults() async {
+        await store.loadMoreNovels(
+            word: word,
+            sort: novelSortOption.rawValue,
+            bookmarkFilter: bookmarkFilter,
+            searchTarget: searchTarget,
+            startDate: startDate,
+            endDate: endDate
+        )
     }
 
     var body: some View {
@@ -122,7 +177,7 @@ struct SearchResultView: View {
                                         .padding()
                                         .onAppear {
                                             Task {
-                                                await store.loadMoreIllusts(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                                                await loadMoreIllustResults()
                                             }
                                         }
                                 } else if !filteredIllusts.isEmpty {
@@ -173,7 +228,7 @@ struct SearchResultView: View {
                                         .padding()
                                         .onAppear {
                                             Task {
-                                                await store.loadMoreNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                                                await loadMoreNovelResults()
                                             }
                                         }
                                 } else if !filteredNovels.isEmpty {
@@ -245,6 +300,8 @@ struct SearchResultView: View {
                     ToolbarItem {
                         HStack(spacing: 0) {
                             BookmarkFilterButton(selectedFilter: $bookmarkFilter)
+                            SearchTargetFilterButton(selectedTarget: $searchTarget)
+                            SearchDateRangeFilterButton(startDate: $startDate, endDate: $endDate)
                             SearchSortButton(
                                 sortOption: $sortOption,
                                 isPremium: accountStore.currentAccount?.isPremium == 1,
@@ -256,6 +313,8 @@ struct SearchResultView: View {
                     ToolbarItem {
                         HStack(spacing: 0) {
                             BookmarkFilterButton(selectedFilter: $bookmarkFilter)
+                            SearchTargetFilterButton(selectedTarget: $searchTarget)
+                            SearchDateRangeFilterButton(startDate: $startDate, endDate: $endDate)
                             SearchSortButton(
                                 sortOption: $novelSortOption,
                                 isPremium: accountStore.currentAccount?.isPremium == 1,
@@ -268,29 +327,40 @@ struct SearchResultView: View {
             .onChange(of: sortOption) { _, _ in
                 guard selectedTab == 0 else { return }
                 Task {
-                    await store.search(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                    await performIllustSearch()
                 }
             }
             .onChange(of: novelSortOption) { _, _ in
                 guard selectedTab == 1 else { return }
                 Task {
-                    await store.searchNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                    await performNovelSearch()
                 }
             }
             .onChange(of: bookmarkFilter) { _, _ in
                 Task {
-                    if selectedTab == 0 {
-                        await store.search(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
-                    } else if selectedTab == 1 {
-                        await store.searchNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
-                    }
+                    await performCurrentTabSearch()
+                }
+            }
+            .onChange(of: searchTarget) { _, _ in
+                Task {
+                    await performCurrentTabSearch()
+                }
+            }
+            .onChange(of: startDate) { _, _ in
+                Task {
+                    await performCurrentTabSearch()
+                }
+            }
+            .onChange(of: endDate) { _, _ in
+                Task {
+                    await performCurrentTabSearch()
                 }
             }
             .onChange(of: selectedTab) { _, newValue in
                 print("[SearchResultView] selectedTab changed to \(newValue)")
                 if newValue == 1 && store.novelResults.isEmpty {
                     Task {
-                        await store.searchNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                        await performNovelSearch()
                     }
                 }
             }
@@ -301,7 +371,7 @@ struct SearchResultView: View {
                 print("[SearchResultView] task started: word='\(word)', viewId=\(viewId)")
                 if store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
                     print("[SearchResultView] performing search")
-                    await store.search(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                    await performIllustSearch()
                 } else {
                     print("[SearchResultView] skipping search - results already exist")
                 }
