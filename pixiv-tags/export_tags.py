@@ -91,7 +91,7 @@ class TagExporter:
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
 
         with open(self.output_path, "w", encoding="utf-8") as f:
-            json.dump(export_data, f, ensure_ascii=False, indent=2)
+            json.dump(export_data, f, ensure_ascii=False, separators=(",", ":"))
 
         file_size = os.path.getsize(self.output_path)
         logger.info(f"导出成功: {self.output_path}")
