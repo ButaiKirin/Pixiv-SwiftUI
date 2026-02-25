@@ -131,7 +131,7 @@ class SearchStore: ObservableObject {
         self.suggestions = await suggestionManager.fetchSuggestions(query: word)
     }
 
-    func search(word: String, sort: String = "date_desc") async {
+    func search(word: String, sort: String = "date_desc", bookmarkFilter: BookmarkFilterOption = .none) async {
         self.isLoading = true
         self.errorMessage = nil
         self.addHistory(word)
@@ -143,10 +143,12 @@ class SearchStore: ObservableObject {
         self.userHasMore = false
         self.novelHasMore = false
 
+        let finalWord = word + bookmarkFilter.suffix
+
         do {
-            async let illustsTask = api.searchIllusts(word: word, sort: sort, offset: 0, limit: illustLimit)
+            async let illustsTask = api.searchIllusts(word: finalWord, sort: sort, offset: 0, limit: illustLimit)
             async let usersTask = api.getSearchUser(word: word, offset: 0)
-            async let novelsTask = api.searchNovels(word: word, offset: 0, limit: novelLimit)
+            async let novelsTask = api.searchNovels(word: finalWord, offset: 0, limit: novelLimit)
 
             let fetchedIllusts = try await illustsTask
             let fetchedUsers = try await usersTask
@@ -170,11 +172,12 @@ class SearchStore: ObservableObject {
     }
 
     /// 加载更多插画
-    func loadMoreIllusts(word: String, sort: String = "date_desc") async {
+    func loadMoreIllusts(word: String, sort: String = "date_desc", bookmarkFilter: BookmarkFilterOption = .none) async {
         guard !isLoading, !isLoadingMoreIllusts, illustHasMore else { return }
         isLoadingMoreIllusts = true
+        let finalWord = word + bookmarkFilter.suffix
         do {
-            let more = try await api.searchIllusts(word: word, sort: sort, offset: self.illustOffset, limit: self.illustLimit)
+            let more = try await api.searchIllusts(word: finalWord, sort: sort, offset: self.illustOffset, limit: self.illustLimit)
             self.illustResults += more
             self.illustOffset += more.count
             self.illustHasMore = more.count == illustLimit
@@ -200,13 +203,15 @@ class SearchStore: ObservableObject {
     }
 
     /// 搜索小说
-    func searchNovels(word: String, sort: String = "date_desc") async {
+    func searchNovels(word: String, sort: String = "date_desc", bookmarkFilter: BookmarkFilterOption = .none) async {
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
 
+        let finalWord = word + bookmarkFilter.suffix
+
         do {
-            let fetchedNovels = try await api.searchNovels(word: word, sort: sort, offset: 0, limit: novelLimit)
+            let fetchedNovels = try await api.searchNovels(word: finalWord, sort: sort, offset: 0, limit: novelLimit)
             self.novelResults = fetchedNovels
             self.novelOffset = fetchedNovels.count
             self.novelHasMore = fetchedNovels.count == novelLimit
@@ -219,11 +224,12 @@ class SearchStore: ObservableObject {
     }
 
     /// 加载更多小说
-    func loadMoreNovels(word: String, sort: String = "date_desc") async {
+    func loadMoreNovels(word: String, sort: String = "date_desc", bookmarkFilter: BookmarkFilterOption = .none) async {
         guard !isLoading, !isLoadingMoreNovels, novelHasMore else { return }
         isLoadingMoreNovels = true
+        let finalWord = word + bookmarkFilter.suffix
         do {
-            let more = try await api.searchNovels(word: word, sort: sort, offset: self.novelOffset, limit: self.novelLimit)
+            let more = try await api.searchNovels(word: finalWord, sort: sort, offset: self.novelOffset, limit: self.novelLimit)
             self.novelResults += more
             self.novelOffset += more.count
             self.novelHasMore = more.count == novelLimit

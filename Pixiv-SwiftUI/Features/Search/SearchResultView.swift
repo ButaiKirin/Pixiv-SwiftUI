@@ -6,6 +6,7 @@ struct SearchResultView: View {
     @State private var selectedTab = 0
     @State private var sortOption: SearchSortOption = .dateDesc
     @State private var novelSortOption: SearchSortOption = .dateDesc
+    @State private var bookmarkFilter: BookmarkFilterOption = .none
     @Environment(UserSettingStore.self) var settingStore
     @Environment(AccountStore.self) var accountStore
     @Environment(ThemeManager.self) var themeManager
@@ -121,7 +122,7 @@ struct SearchResultView: View {
                                         .padding()
                                         .onAppear {
                                             Task {
-                                                await store.loadMoreIllusts(word: word, sort: sortOption.rawValue)
+                                                await store.loadMoreIllusts(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
                                             }
                                         }
                                 } else if !filteredIllusts.isEmpty {
@@ -172,7 +173,7 @@ struct SearchResultView: View {
                                         .padding()
                                         .onAppear {
                                             Task {
-                                                await store.loadMoreNovels(word: word, sort: novelSortOption.rawValue)
+                                                await store.loadMoreNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
                                             }
                                         }
                                 } else if !filteredNovels.isEmpty {
@@ -242,39 +243,54 @@ struct SearchResultView: View {
             .toolbar {
                 if selectedTab == 0 {
                     ToolbarItem {
-                        SearchSortButton(
-                            sortOption: $sortOption,
-                            isPremium: accountStore.currentAccount?.isPremium == 1,
-                            contentType: .illust
-                        )
+                        HStack(spacing: 0) {
+                            BookmarkFilterButton(selectedFilter: $bookmarkFilter)
+                            SearchSortButton(
+                                sortOption: $sortOption,
+                                isPremium: accountStore.currentAccount?.isPremium == 1,
+                                contentType: .illust
+                            )
+                        }
                     }
                 } else if selectedTab == 1 {
                     ToolbarItem {
-                        SearchSortButton(
-                            sortOption: $novelSortOption,
-                            isPremium: accountStore.currentAccount?.isPremium == 1,
-                            contentType: .novel
-                        )
+                        HStack(spacing: 0) {
+                            BookmarkFilterButton(selectedFilter: $bookmarkFilter)
+                            SearchSortButton(
+                                sortOption: $novelSortOption,
+                                isPremium: accountStore.currentAccount?.isPremium == 1,
+                                contentType: .novel
+                            )
+                        }
                     }
                 }
             }
             .onChange(of: sortOption) { _, _ in
                 guard selectedTab == 0 else { return }
                 Task {
-                    await store.search(word: word, sort: sortOption.rawValue)
+                    await store.search(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
                 }
             }
             .onChange(of: novelSortOption) { _, _ in
                 guard selectedTab == 1 else { return }
                 Task {
-                    await store.searchNovels(word: word, sort: novelSortOption.rawValue)
+                    await store.searchNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                }
+            }
+            .onChange(of: bookmarkFilter) { _, _ in
+                Task {
+                    if selectedTab == 0 {
+                        await store.search(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                    } else if selectedTab == 1 {
+                        await store.searchNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
+                    }
                 }
             }
             .onChange(of: selectedTab) { _, newValue in
                 print("[SearchResultView] selectedTab changed to \(newValue)")
                 if newValue == 1 && store.novelResults.isEmpty {
                     Task {
-                        await store.searchNovels(word: word, sort: novelSortOption.rawValue)
+                        await store.searchNovels(word: word, sort: novelSortOption.rawValue, bookmarkFilter: bookmarkFilter)
                     }
                 }
             }
@@ -285,7 +301,7 @@ struct SearchResultView: View {
                 print("[SearchResultView] task started: word='\(word)', viewId=\(viewId)")
                 if store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
                     print("[SearchResultView] performing search")
-                    await store.search(word: word, sort: sortOption.rawValue)
+                    await store.search(word: word, sort: sortOption.rawValue, bookmarkFilter: bookmarkFilter)
                 } else {
                     print("[SearchResultView] skipping search - results already exist")
                 }
