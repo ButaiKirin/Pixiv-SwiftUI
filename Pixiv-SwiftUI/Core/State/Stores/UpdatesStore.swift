@@ -9,6 +9,8 @@ class UpdatesStore: ObservableObject {
 
     @Published var isLoadingUpdates = false
     @Published var isLoadingFollowing = false
+    @Published var hasFetchedUpdates = false
+    @Published var hasFetchedFollowing = false
 
     @Published var currentRestrict: String = "public"
 
@@ -40,13 +42,17 @@ class UpdatesStore: ObservableObject {
                     self.updates = cached.0
                     self.nextUrlUpdates = cached.1
                 }
+                hasFetchedUpdates = true
                 return
             }
         }
 
         guard !isLoadingUpdates else { return }
         isLoadingUpdates = true
-        defer { isLoadingUpdates = false }
+        defer {
+            isLoadingUpdates = false
+            hasFetchedUpdates = true
+        }
 
         do {
             let (illusts, nextUrl) = try await api.getFollowIllusts(restrict: effectiveRestrict)
@@ -89,6 +95,7 @@ class UpdatesStore: ObservableObject {
         let cacheKey = cacheKeyFollowing(userId: userId)
         if !forceRefresh {
             if hasCachedFollowing && cache.isValid(forKey: cacheKey) {
+                hasFetchedFollowing = true
                 return
             }
 
@@ -96,13 +103,17 @@ class UpdatesStore: ObservableObject {
             if let cached: ([UserPreviews], String?) = cache.get(forKey: cacheKey) {
                 self.following = cached.0
                 self.nextUrlFollowing = cached.1
+                hasFetchedFollowing = true
                 return
             }
         }
 
         guard !isLoadingFollowing else { return }
         isLoadingFollowing = true
-        defer { isLoadingFollowing = false }
+        defer {
+            isLoadingFollowing = false
+            hasFetchedFollowing = true
+        }
 
         do {
             let (users, nextUrl) = try await api.getUserFollowing(userId: userId)

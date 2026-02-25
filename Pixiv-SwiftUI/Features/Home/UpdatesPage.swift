@@ -53,7 +53,7 @@ struct UpdatesPage: View {
                             FollowingHorizontalList(store: store, path: $path)
                                 .padding(.vertical, 8)
 
-                            if store.isLoadingUpdates && store.updates.isEmpty {
+                            if (store.isLoadingUpdates || !store.hasFetchedUpdates) && store.updates.isEmpty {
                                 SkeletonIllustWaterfallGrid(
                                     columnCount: dynamicColumnCount,
                                     itemCount: skeletonItemCount
