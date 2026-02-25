@@ -51,6 +51,7 @@
 ### 搜索功能
 
 - 综合搜索：插画、小说、用户一站式搜索
+- 亮点：展示 pixivison 网站定期推出的特辑内容
 - 趋势标签：热门标签展示
 - 搜索历史：记录与快速访问
 
@@ -59,7 +60,8 @@
 - 支持翻译插画标题、简介，小说标题、简介，用户简介和所有评论
 - 多翻译服务支持：可配置主要/备用翻译服务
 - 智能语言检测：自动识别内容语言
-- 沉浸式翻译：双语对照阅读模式
+- 双语对照阅读模式
+- 针对LLM在小说场景下的特别优化：提交多段结合上下文翻译
 
 ### 网络功能
 
@@ -75,11 +77,11 @@
 ### 外观与体验
 
 - 深色模式：自动/手动切换主题色
-- 主题自定义：自定义强调色
-- 布局适配：iPhone、Mac 优化布局（iPad 还有些问题）
+- 主题自定义：预设和自定义的强调色
+- 布局适配：针对不同平台优化布局
 - 缓存管理：图片缓存与存储清理
 - 屏蔽设置：屏蔽标签、用户、具体插画
-- R18/AI 过滤：正常显示、模糊显示、屏蔽、仅显示
+- R-18/R-18G/剧透/AI 过滤：正常显示、模糊显示、屏蔽、仅显示
 
 ## 系统要求
 
@@ -107,36 +109,38 @@ sudo xattr -rd com.apple.quarantine /Applications/Pixiv-SwiftUI.app
 
 - [pixez-flutter](https://github.com/Notsfsssf/pixez-flutter): 这是本项目的主要参考对象，大量参考了该项目的 API 和 UI 设计。pixez-flutter 是一个非常优秀的项目，遗憾的是在 iOS 设备上的异常发热问题长期未获得解决，这也是本项目诞生的主要动机。
 - [Kingfisher](https://github.com/onevcat/Kingfisher): 提供图片加载和缓存
-- [TranslationKit](https://github.com/Eslzzyl/TranslationKit): 提供翻译接口，同样是完全的 Vibe Coding 项目
 - [GzipSwift](https://github.com/1024jp/GzipSwift): 直连模式手动实现了 HTTP 协议，GzipSwift 为其提供 gzip 解压功能。
+- [SwiftSoup](https://github.com/scinfu/SwiftSoup)：为亮点和以图搜图功能提供了 HTML 解析能力
 - [沉浸式翻译](https://immersivetranslate.com/zh-Hans/): 为项目的翻译功能提供了启发
 - [pixivpy](https://github.com/upbit/pixivpy): 提供了 API 参考
 - [OpenCode](https://opencode.ai/): OpenCode Zen 计划免费提供的模型实现了本项目的大部分代码
 - [iFlow CLI](https://cli.iflow.cn/)：提供的免费模型参与实现了项目
 
-项目目前的主程序员是 GLM-5。其他参与开发的模型还包括：Kimi K2.5、GLM 4.6、GLM 4.7、Gemini 3 Flash、Gemini 3 Pro、Grok Code Fast 1、GPT-5.2、GPT-5.2-Codex
+参与开发的模型包括：
+- MiniMax M2.1
+- Kimi-K2.5
+- GLM-4.6
+- GLM-4.7
+- GLM-5
+- Qwen3.5-Plus
+- Gemini 3 Flash
+- Gemini 3 Pro
+- Gemini 3.1 Pro
+- Grok Code Fast 1
+- GPT-5.2
+- GPT-5.2-Codex
+- GPT-5.3-Codex
+- Claude Haiku 4.5
+- Claude Opus 4.5
+- Claude Sonnet 4.6
 
 ## 截图
 
 截图可能无法完全反映最新的 UI 状态。
 
-### iOS
+点击对应连接跳转到截图页查看。
 
-<p align="center">
-  <img src="./docs/ios_screenshot/推荐.webp" alt="推荐" width="200" style="border-radius: 12px; margin: 8px;">
-  <img src="./docs/ios_screenshot/动态.webp" alt="动态" width="200" style="border-radius: 12px; margin: 8px;">
-  <img src="./docs/ios_screenshot/小说.webp" alt="小说" width="200" style="border-radius: 12px; margin: 8px;">
-  <img src="./docs/ios_screenshot/搜索.webp" alt="搜索" width="200" style="border-radius: 12px; margin: 8px;">
-</p>
-
-### macOS
-
-<p align="center">
-  <img src="./docs/macos_screenshot/推荐.webp" alt="推荐" width="200" style="border-radius: 12px; margin: 8px;">
-  <img src="./docs/macos_screenshot/动态.webp" alt="动态" width="200" style="border-radius: 12px; margin: 8px;">
-  <img src="./docs/macos_screenshot/小说.webp" alt="小说" width="200" style="border-radius: 12px; margin: 8px;">
-  <img src="./docs/macos_screenshot/搜索.webp" alt="搜索" width="200" style="border-radius: 12px; margin: 8px;">
-</p>
+iOS | iPadOS | [macOS](./docs/screenshots/macos.md)
 
 ---
 
