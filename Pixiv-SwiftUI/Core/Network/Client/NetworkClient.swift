@@ -79,12 +79,13 @@ final class NetworkClient {
     func downloadWithByteProgress(
         from url: URL,
         headers: [String: String] = [:],
+        destinationURL: URL? = nil,
         onProgress: (@Sendable (Int64, Int64?) -> Void)? = nil
     ) async throws -> (URL, URLResponse) {
         if useDirectConnection {
-            return try await directDownloadWithByteProgress(from: url, headers: headers, onProgress: onProgress)
+            return try await directDownloadWithByteProgress(from: url, headers: headers, destinationURL: destinationURL, onProgress: onProgress)
         }
-        return try await urlSessionDownloadWithByteProgress(from: url, headers: headers, onProgress: onProgress)
+        return try await urlSessionDownloadWithByteProgress(from: url, headers: headers, destinationURL: destinationURL, onProgress: onProgress)
     }
 
     // MARK: - URLSession 实现
@@ -294,6 +295,7 @@ final class NetworkClient {
     private func urlSessionDownloadWithByteProgress(
         from url: URL,
         headers: [String: String],
+        destinationURL: URL? = nil,
         onProgress: (@Sendable (Int64, Int64?) -> Void)? = nil
     ) async throws -> (URL, URLResponse) {
         var request = URLRequest(url: url)
@@ -301,8 +303,20 @@ final class NetworkClient {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".tmp")
-        FileManager.default.createFile(atPath: tempURL.path(percentEncoded: false), contents: nil)
+        let tempURL = destinationURL ?? FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".tmp")
+        var downloadedBytes: Int64 = 0
+
+        if FileManager.default.fileExists(atPath: tempURL.path(percentEncoded: false)) {
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: tempURL.path(percentEncoded: false)),
+               let fileSize = attributes[.size] as? NSNumber {
+                downloadedBytes = fileSize.int64Value
+                if downloadedBytes > 0 {
+                    request.setValue("bytes=\(downloadedBytes)-", forHTTPHeaderField: "Range")
+                }
+            }
+        } else {
+            FileManager.default.createFile(atPath: tempURL.path(percentEncoded: false), contents: nil)
+        }
 
         let fileHandle = try FileHandle(forWritingTo: tempURL)
         defer {
@@ -311,9 +325,19 @@ final class NetworkClient {
 
         do {
             let (bytes, response) = try await self.session.bytes(for: request)
-            let totalBytes = response.expectedContentLength > 0 ? response.expectedContentLength : nil
+            let httpResponse = response as? HTTPURLResponse
+            let isPartial = httpResponse?.statusCode == 206
 
-            var receivedBytes: Int64 = 0
+            if !isPartial {
+                downloadedBytes = 0
+                try fileHandle.truncate(atOffset: 0)
+            } else {
+                try fileHandle.seekToEnd()
+            }
+
+            let totalBytes = response.expectedContentLength > 0 ? response.expectedContentLength + downloadedBytes : nil
+
+            var receivedBytes: Int64 = downloadedBytes
             var buffer = Data()
             buffer.reserveCapacity(64 * 1024)
 
@@ -337,7 +361,9 @@ final class NetworkClient {
 
             return (tempURL, response)
         } catch {
-            try? FileManager.default.removeItem(at: tempURL)
+            if destinationURL == nil {
+                try? FileManager.default.removeItem(at: tempURL)
+            }
             throw error
         }
     }
@@ -345,6 +371,7 @@ final class NetworkClient {
     private func directDownloadWithByteProgress(
         from url: URL,
         headers: [String: String],
+        destinationURL: URL? = nil,
         onProgress: (@Sendable (Int64, Int64?) -> Void)? = nil
     ) async throws -> (URL, URLResponse) {
         guard let host = url.host else {
@@ -356,26 +383,54 @@ final class NetworkClient {
         let query = url.query(percentEncoded: true).map { "?\($0)" } ?? ""
         let fullPath = path + query
 
+        let tempURL = destinationURL ?? FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".tmp")
+        var downloadedBytes: Int64 = 0
+        var requestHeaders = headers
+
+        if FileManager.default.fileExists(atPath: tempURL.path(percentEncoded: false)) {
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: tempURL.path(percentEncoded: false)),
+               let fileSize = attributes[.size] as? NSNumber {
+                downloadedBytes = fileSize.int64Value
+                if downloadedBytes > 0 {
+                    requestHeaders["Range"] = "bytes=\(downloadedBytes)-"
+                }
+            }
+        }
+
+        let currentDownloadedBytes = downloadedBytes
         let (data, httpResponse) = try await DirectConnection.shared.request(
             endpoint: endpoint,
             path: fullPath,
             method: "GET",
-            headers: headers,
+            headers: requestHeaders,
             timeout: 120, // 下载文件使用 120 秒超时
             onProgress: { received, total in
-                onProgress?(received, total)
+                let totalBytes = total.map { $0 + currentDownloadedBytes }
+                onProgress?(received + currentDownloadedBytes, totalBytes)
             }
         )
 
         try Task.checkCancellation()
 
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".tmp")
-        try data.write(to: tempURL)
+        let isPartial = httpResponse.statusCode == 206
+
+        if isPartial && downloadedBytes > 0 {
+            if let fileHandle = try? FileHandle(forWritingTo: tempURL) {
+                defer { try? fileHandle.close() }
+                try fileHandle.seekToEnd()
+                try fileHandle.write(contentsOf: data)
+            } else {
+                try data.write(to: tempURL)
+            }
+        } else {
+            try data.write(to: tempURL)
+            downloadedBytes = 0
+        }
 
         try Task.checkCancellation()
 
-        let totalBytes = httpResponse.expectedContentLength > 0 ? httpResponse.expectedContentLength : nil
-        onProgress?(Int64(data.count), totalBytes)
+        let totalBytes = httpResponse.expectedContentLength > 0 ? httpResponse.expectedContentLength + downloadedBytes : nil
+        onProgress?(Int64(data.count) + downloadedBytes, totalBytes)
 
         return (tempURL, httpResponse)
     }

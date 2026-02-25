@@ -135,7 +135,8 @@ final class UgoiraStore: ObservableObject {
                 let zipURL = metadata.zipUrls.url(for: quality)
                 Logger.ugoira.debug("开始下载，quality=\(quality)，zipURL=\(zipURL, privacy: .public)")
                 // 修改：将 zip 文件下载到系统临时目录，而不是解压目录，防止被 unzip 清理掉
-                let zipFileURL = FileManager.default.temporaryDirectory.appendingPathComponent("ugoira_\(self.illustId)_\(UUID().uuidString).zip")
+                let zipFileURL = FileManager.default.temporaryDirectory.appendingPathComponent("ugoira_\(self.illustId).zip")
+                let tmpFileURL = FileManager.default.temporaryDirectory.appendingPathComponent("ugoira_\(self.illustId).zip.tmp")
 
                 defer {
                     // 清理 zip 文件
@@ -143,7 +144,7 @@ final class UgoiraStore: ObservableObject {
                 }
 
                 Logger.ugoira.debug("调用 downloadZip...")
-                try await downloadZip(from: zipURL, to: zipFileURL)
+                try await downloadZip(from: zipURL, to: zipFileURL, tmpURL: tmpFileURL)
                 try Task.checkCancellation()
 
                 status = .unzipping
@@ -171,7 +172,7 @@ final class UgoiraStore: ObservableObject {
         status = .idle
     }
 
-    private func downloadZip(from remoteURL: String, to localURL: URL) async throws {
+    private func downloadZip(from remoteURL: String, to localURL: URL, tmpURL: URL) async throws {
         Logger.ugoira.debug("downloadZip: remoteURL=\(remoteURL, privacy: .public)")
         guard let url = URL(string: remoteURL) else {
             Logger.ugoira.error("无效的 URL")
@@ -187,7 +188,7 @@ final class UgoiraStore: ObservableObject {
             headers = modifiedRequest.allHTTPHeaderFields ?? [:]
         }
 
-        let (tempURL, response) = try await NetworkClient.shared.downloadWithByteProgress(from: url, headers: headers) { receivedBytes, totalBytes in
+        let (tempURL, response) = try await NetworkClient.shared.downloadWithByteProgress(from: url, headers: headers, destinationURL: tmpURL) { receivedBytes, totalBytes in
             Task { @MainActor in
                 guard self.downloadTask != nil else { return }
                 self.updateDownloadProgress(receivedBytes: receivedBytes, totalBytes: totalBytes)
@@ -204,7 +205,9 @@ final class UgoiraStore: ObservableObject {
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
             Logger.ugoira.error("HTTP 错误，statusCode=\((response as? HTTPURLResponse)?.statusCode ?? 0)")
-            try? FileManager.default.removeItem(at: tempURL)
+            if (response as? HTTPURLResponse)?.statusCode == 416 {
+                try? FileManager.default.removeItem(at: tmpURL)
+            }
             throw UgoiraError.downloadFailed
         }
 
