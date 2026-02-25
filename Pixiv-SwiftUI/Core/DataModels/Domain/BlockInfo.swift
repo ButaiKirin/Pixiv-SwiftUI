@@ -46,3 +46,21 @@ final class BlockedIllustInfo {
         self.thumbnailUrl = thumbnailUrl
     }
 }
+
+/// 屏蔽的小说信息
+@Model
+final class BlockedNovelInfo {
+    var novelId: Int
+    var title: String?
+    var authorId: String?
+    var authorName: String?
+    var thumbnailUrl: String?
+
+    init(novelId: Int, title: String? = nil, authorId: String? = nil, authorName: String? = nil, thumbnailUrl: String? = nil) {
+        self.novelId = novelId
+        self.title = title
+        self.authorId = authorId
+        self.authorName = authorName
+        self.thumbnailUrl = thumbnailUrl
+    }
+}

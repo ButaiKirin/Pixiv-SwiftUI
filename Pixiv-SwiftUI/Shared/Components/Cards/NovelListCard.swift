@@ -77,8 +77,8 @@ struct NovelListCard: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        #if os(macOS)
         .contextMenu {
+            #if os(macOS)
             Button {
                 openWindow(id: "novel-detail", value: novel.id)
             } label: {
@@ -86,6 +86,7 @@ struct NovelListCard: View {
             }
 
             Divider()
+            #endif
 
             if isBookmarked {
                 if novel.bookmarkRestrict == "private" {
@@ -118,8 +119,46 @@ struct NovelListCard: View {
                     Label("非公开收藏", systemImage: "heart.slash")
                 }
             }
+
+            Divider()
+
+            Section("屏蔽") {
+                Button(role: .destructive) {
+                    try? UserSettingStore.shared.addBlockedNovelWithInfo(
+                        novel.id,
+                        title: novel.title,
+                        authorId: novel.user.id.stringValue,
+                        authorName: novel.user.name,
+                        thumbnailUrl: novel.imageUrls.squareMedium
+                    )
+                } label: {
+                    Label("屏蔽此作品", systemImage: "eye.slash")
+                }
+
+                Button(role: .destructive) {
+                    try? UserSettingStore.shared.addBlockedUserWithInfo(
+                        novel.user.id.stringValue,
+                        name: novel.user.name,
+                        account: novel.user.account,
+                        avatarUrl: novel.user.profileImageUrls?.medium
+                    )
+                } label: {
+                    Label("屏蔽此作者", systemImage: "person.slash")
+                }
+
+                Menu {
+                    ForEach(novel.tags, id: \.name) { tag in
+                        Button {
+                            try? UserSettingStore.shared.addBlockedTagWithInfo(tag.name, translatedName: tag.translatedName)
+                        } label: {
+                            Text(tag.translatedName ?? tag.name)
+                        }
+                    }
+                } label: {
+                    Label("屏蔽此标签", systemImage: "tag.slash")
+                }
+            }
         }
-        #endif
     }
 
     private func formatTextLength(_ length: Int) -> String {

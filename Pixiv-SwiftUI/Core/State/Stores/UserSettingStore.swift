@@ -17,10 +17,12 @@ final class UserSettingStore {
     var blockedTags: [String] = []
     var blockedUsers: [String] = []
     var blockedIllusts: [Int] = []
+    var blockedNovels: [Int] = []
 
     var blockedTagInfos: [BlockedTagInfo] = []
     var blockedUserInfos: [BlockedUserInfo] = []
     var blockedIllustInfos: [BlockedIllustInfo] = []
+    var blockedNovelInfos: [BlockedNovelInfo] = []
 
     private let dataContainer = DataContainer.shared
 
@@ -96,9 +98,11 @@ final class UserSettingStore {
         self.blockedTags = setting.blockedTags
         self.blockedUsers = setting.blockedUsers
         self.blockedIllusts = setting.blockedIllusts
+        self.blockedNovels = setting.blockedNovels
         self.blockedTagInfos = setting.blockedTagInfos
         self.blockedUserInfos = setting.blockedUserInfos
         self.blockedIllustInfos = setting.blockedIllustInfos
+        self.blockedNovelInfos = setting.blockedNovelInfos
         self.isLoaded = true
     }
 
@@ -408,6 +412,37 @@ final class UserSettingStore {
         try saveSetting()
     }
 
+    func addBlockedNovel(_ novelId: Int) throws {
+        if !blockedNovels.contains(novelId) {
+            blockedNovels.append(novelId)
+            userSetting.blockedNovels = blockedNovels
+            try saveSetting()
+        }
+    }
+
+    func addBlockedNovelWithInfo(_ novelId: Int, title: String?, authorId: String?, authorName: String?, thumbnailUrl: String?) throws {
+        if !blockedNovels.contains(novelId) {
+            blockedNovels.append(novelId)
+            userSetting.blockedNovels = blockedNovels
+
+            let info = BlockedNovelInfo(novelId: novelId, title: title, authorId: authorId, authorName: authorName, thumbnailUrl: thumbnailUrl)
+            blockedNovelInfos.append(info)
+            userSetting.blockedNovelInfos = blockedNovelInfos
+
+            try saveSetting()
+        }
+    }
+
+    func removeBlockedNovel(_ novelId: Int) throws {
+        blockedNovels.removeAll { $0 == novelId }
+        userSetting.blockedNovels = blockedNovels
+
+        blockedNovelInfos.removeAll { $0.novelId == novelId }
+        userSetting.blockedNovelInfos = blockedNovelInfos
+
+        try saveSetting()
+    }
+
     /// 过滤插画列表，根据屏蔽设置（同步版本，用于计算属性）
     func filterIllusts(_ illusts: [Illusts]) -> [Illusts] {
         var result = illusts
@@ -655,6 +690,13 @@ final class UserSettingStore {
             }
         }
 
+        // 屏蔽小说
+        if !blockedNovels.isEmpty {
+            result = result.filter { novel in
+                !blockedNovels.contains(novel.id)
+            }
+        }
+
         return result
     }
 
@@ -667,9 +709,10 @@ final class UserSettingStore {
         let aiMode = userSetting.aiDisplayMode
         let tagsSet = blockedTagsSet
         let blockedUsersList = blockedUsers
+        let blockedNovelsList = blockedNovels
         let spoilerTagsSet = spoilerTags
 
-        let novelData = novels.map { ($0.xRestrict, $0.novelAIType, $0.user.id.stringValue, $0.tags) }
+        let novelData = novels.map { ($0.id, $0.xRestrict, $0.novelAIType, $0.user.id.stringValue, $0.tags) }
 
         return await withCheckedContinuation { continuation in
             Task(priority: .userInitiated) {
@@ -678,7 +721,7 @@ final class UserSettingStore {
                     indicesToKeep.reserveCapacity(novelData.count)
 
                     for (index, data) in novelData.enumerated() {
-                        let (xRestrict, aiType, userId, tags) = data
+                        let (id, xRestrict, aiType, userId, tags) = data
 
                         // R18 过滤 (xRestrict == 1)
                         switch r18Mode {
@@ -730,6 +773,13 @@ final class UserSettingStore {
                         // 屏蔽作者
                         if !blockedUsersList.isEmpty {
                             if blockedUsersList.contains(userId) {
+                                continue
+                            }
+                        }
+
+                        // 屏蔽小说
+                        if !blockedNovelsList.isEmpty {
+                            if blockedNovelsList.contains(id) {
                                 continue
                             }
                         }

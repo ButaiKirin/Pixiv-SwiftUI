@@ -141,6 +141,9 @@ final class UserSetting: Codable {
     /// 屏蔽的插画ID列表（仅存储ID，用于过滤）
     var blockedIllusts: [Int] = []
 
+    /// 屏蔽的小说ID列表（仅存储ID，用于过滤）
+    var blockedNovels: [Int] = []
+
     /// 屏蔽标签的详细信息
     var blockedTagInfos: [BlockedTagInfo] = []
 
@@ -149,6 +152,9 @@ final class UserSetting: Codable {
 
     /// 屏蔽插画的详细信息
     var blockedIllustInfos: [BlockedIllustInfo] = []
+
+    /// 屏蔽小说的详细信息
+    var blockedNovelInfos: [BlockedNovelInfo] = []
 
     // MARK: - 翻译设置
 

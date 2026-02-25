@@ -161,8 +161,8 @@ struct RelatedIllustCard: View {
             .background(Color(uiColor: .secondarySystemGroupedBackground))
             #endif
             .cornerRadius(12)
-            #if os(macOS)
             .contextMenu {
+                #if os(macOS)
                 Button {
                     openWindow(id: "illust-detail", value: illust.id)
                 } label: {
@@ -170,6 +170,7 @@ struct RelatedIllustCard: View {
                 }
 
                 Divider()
+                #endif
 
                 if isBookmarked {
                     if illust.bookmarkRestrict == "private" {
@@ -202,8 +203,46 @@ struct RelatedIllustCard: View {
                         Label("非公开收藏", systemImage: "heart.slash")
                     }
                 }
+
+                Divider()
+
+                Section("屏蔽") {
+                    Button(role: .destructive) {
+                        try? UserSettingStore.shared.addBlockedIllustWithInfo(
+                            illust.id,
+                            title: illust.title,
+                            authorId: illust.user.id.stringValue,
+                            authorName: illust.user.name,
+                            thumbnailUrl: illust.imageUrls.squareMedium
+                        )
+                    } label: {
+                        Label("屏蔽此作品", systemImage: "eye.slash")
+                    }
+
+                    Button(role: .destructive) {
+                        try? UserSettingStore.shared.addBlockedUserWithInfo(
+                            illust.user.id.stringValue,
+                            name: illust.user.name,
+                            account: illust.user.account,
+                            avatarUrl: illust.user.profileImageUrls?.medium
+                        )
+                    } label: {
+                        Label("屏蔽此作者", systemImage: "person.slash")
+                    }
+
+                    Menu {
+                        ForEach(illust.tags, id: \.name) { tag in
+                            Button {
+                                try? UserSettingStore.shared.addBlockedTagWithInfo(tag.name, translatedName: tag.translatedName)
+                            } label: {
+                                Text(tag.translatedName ?? tag.name)
+                            }
+                        }
+                    } label: {
+                        Label("屏蔽此标签", systemImage: "tag.slash")
+                    }
+                }
             }
-            #endif
         }
     }
 
