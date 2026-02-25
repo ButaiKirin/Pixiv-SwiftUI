@@ -126,30 +126,30 @@ struct IllustCard: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(illust.title)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
-                    .multilineTextAlignment(.leading)
-                    .foregroundColor(.primary)
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(illust.title)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.leading)
+                        .foregroundColor(.primary)
 
-                HStack {
                     Text(illust.user.name)
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
-
-                    Spacer()
-
-                    Button { toggleBookmark() } label: {
-                        Image(systemName: bookmarkIconName)
-                            .foregroundColor(isBookmarked ? themeManager.currentColor : .secondary)
-                            .font(.system(size: 14))
-                    }
-                    .buttonStyle(.plain)
-                    .sensoryFeedback(.impact(weight: .light), trigger: isBookmarked)
                 }
+
+                Spacer()
+
+                Button { toggleBookmark() } label: {
+                    Image(systemName: bookmarkIconName)
+                        .foregroundColor(isBookmarked ? themeManager.currentColor : .secondary)
+                        .font(.system(size: 20))
+                }
+                .buttonStyle(.plain)
+                .sensoryFeedback(.impact(weight: .light), trigger: isBookmarked)
             }
             .padding(8)
         }
