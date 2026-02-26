@@ -282,7 +282,9 @@ struct BrowseHistoryView: View {
 
     private func loadIllustBatch(idsToLoad: [Int], endIndex: Int) async {
         do {
-            let newIllusts = try illustStore.getCachedIllusts(idsToLoad)
+            let cachedIllusts = try illustStore.getCachedIllusts(idsToLoad)
+            let idToIllust = Dictionary(uniqueKeysWithValues: cachedIllusts.map { ($0.id, $0) })
+            let newIllusts = idsToLoad.compactMap { idToIllust[$0] }
 
             await MainActor.run {
                 illusts.append(contentsOf: newIllusts)
