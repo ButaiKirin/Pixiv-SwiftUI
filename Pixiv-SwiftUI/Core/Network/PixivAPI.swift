@@ -12,9 +12,10 @@ final class PixivAPI {
     private var userAPI: UserAPI?
     private var bookmarkAPI: BookmarkAPI?
     private(set) var mangaAPI: MangaAPI?
-    // MARK: - Public Properties
-
     private(set) var novelAPI: NovelAPI?
+    private(set) var ajaxAPI: AjaxAPI?
+    
+    private var isAjaxSessionReady = false
 
     /// 设置访问令牌并初始化其他API类
     func setAccessToken(_ token: String) {
@@ -28,6 +29,9 @@ final class PixivAPI {
         bookmarkAPI = BookmarkAPI(authHeaders: headers)
         mangaAPI = MangaAPI(authHeaders: headers)
         novelAPI = NovelAPI(authHeaders: headers)
+        
+        ajaxAPI = AjaxAPI()
+        isAjaxSessionReady = false
     }
 
     // MARK: - Private Helper Methods
@@ -466,5 +470,28 @@ final class PixivAPI {
     func getMangaSeriesByURL(_ urlString: String) async throws -> (series: [MangaSeries], nextUrl: String?) {
         guard let api = mangaAPI else { throw NetworkError.invalidResponse }
         return try await api.getMangaSeriesByURL(urlString)
+    }
+
+    // MARK: - Ajax API 相关
+
+    /// 初始化 Ajax API 会话 (执行 Web 登录并获取 CSRF Token)
+    func setupAjaxSession() async throws {
+        if isAjaxSessionReady { return }
+        
+        // 1. 从 App API 获取 web_token
+        let webToken = try await authAPI.getWebToken()
+        
+        // 2. 初始化 Ajax 会话
+        guard let ajax = ajaxAPI else { throw NetworkError.invalidResponse }
+        try await ajax.loginWithWebToken(webToken)
+        
+        isAjaxSessionReady = true
+    }
+
+    /// 获取搜索建议 (Ajax)
+    func getSearchSuggestion(mode: String = "all") async throws -> SearchSuggestionResponse {
+        try await setupAjaxSession()
+        guard let ajax = ajaxAPI else { throw NetworkError.invalidResponse }
+        return try await ajax.getSearchSuggestion(mode: mode)
     }
 }

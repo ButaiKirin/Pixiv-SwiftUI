@@ -102,6 +102,27 @@ final class AuthAPI {
         )
     }
 
+    /// 获取 web_token (用于 Ajax API 登录)
+    func getWebToken() async throws -> String {
+        guard let url = URL(string: APIEndpoint.baseURL + APIEndpoint.webToken) else {
+            throw NetworkError.invalidURL
+        }
+
+        struct WebTokenResponse: Decodable {
+            let response: TokenData
+            struct TokenData: Decodable {
+                let token: String
+            }
+        }
+
+        let result = try await client.get(
+            from: url,
+            headers: authHeaders,
+            responseType: WebTokenResponse.self
+        )
+        return result.response.token
+    }
+
     /// 使用 refresh_token 登录
     func loginWithRefreshToken(_ refreshToken: String) async throws -> (
         accessToken: String, user: User

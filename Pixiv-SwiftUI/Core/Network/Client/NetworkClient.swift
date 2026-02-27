@@ -642,6 +642,7 @@ final class NetworkClient {
 
 /// 网络请求错误
 enum NetworkError: LocalizedError {
+    case invalidURL
     case invalidResponse
     case httpError(Int)
     case decodingError(Error)
@@ -649,6 +650,8 @@ enum NetworkError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .invalidURL:
+            return "无效的 URL"
         case .invalidResponse:
             return "无效的服务器响应"
         case .httpError(let code):
@@ -665,12 +668,14 @@ enum NetworkError: LocalizedError {
 enum APIEndpoint {
     static let baseURL = "https://app-api.pixiv.net"
     static let webBaseURL = "https://www.pixiv.net"
+    static let ajaxBaseURL = "https://www.pixiv.net/ajax"
     static let oauthURL = "https://oauth.secure.pixiv.net"
 
     // 认证相关
     static let login = "/auth/token"
     static let authToken = "/auth/token"
     static let refreshToken = "/auth/token"
+    static let webToken = "/v1/user/web_token"
 
     // 推荐相关
     static let recommendIllusts = "/v1/illust/recommended"
