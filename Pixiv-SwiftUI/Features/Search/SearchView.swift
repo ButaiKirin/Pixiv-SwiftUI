@@ -45,6 +45,14 @@ struct SearchView: View {
         return result
     }
 
+    private var recommendedSearchTagColumns: [[TrendTag]] {
+        var result = Array(repeating: [TrendTag](), count: columnCount)
+        for (index, item) in store.recommendedSearchTags.enumerated() {
+            result[index % columnCount].append(item)
+        }
+        return result
+    }
+
     private func copyToClipboard(_ text: String) {
         #if canImport(UIKit)
         UIPasteboard.general.string = text
@@ -269,6 +277,7 @@ struct SearchView: View {
             }
             .task {
                 await store.fetchTrendTags()
+                await store.fetchRecommendedTags()
             }
             .pixivNavigationDestinations()
             .navigationDestination(for: SauceNaoResultTarget.self) { target in
@@ -464,6 +473,35 @@ struct SearchView: View {
                                 .cornerRadius(12)
                             }
                             .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
+                if !store.recommendedSearchTags.isEmpty {
+                    Text("推荐标签")
+                        .font(.headline)
+                        .padding(.horizontal)
+                        .padding(.top)
+
+                    HStack(alignment: .top, spacing: 10) {
+                        ForEach(0..<columnCount, id: \.self) { columnIndex in
+                            LazyVStack(spacing: 10) {
+                                ForEach(recommendedSearchTagColumns[columnIndex]) { tag in
+                                    Button(action: {
+                                        let searchTag = SearchTag(name: tag.tag, translatedName: tag.translatedName)
+                                        store.addHistory(searchTag)
+                                        store.searchText = tag.tag
+                                        selectedTag = tag.tag
+                                        path = NavigationPath()
+                                        path.append(SearchResultTarget(word: tag.tag))
+                                    }) {
+                                        trendTagContent(tag)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
                         }
                     }
                     .padding(.horizontal)

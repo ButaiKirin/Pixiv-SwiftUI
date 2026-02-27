@@ -8,15 +8,16 @@ import Foundation
 final class AjaxAPI {
     private let client = NetworkClient.shared
     private var csrfToken: String?
-    
-    // 使用统一的 PC/iOS 浏览器 User-Agent 以获取 Web 版内容
-    private let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+
+    // 使用桌面版 User-Agent 以确保与桌面端 Ajax 接口结构一致
+    private let userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     private var ajaxHeaders: [String: String] {
         var headers = [
             "User-Agent": userAgent,
             "Referer": "https://www.pixiv.net/",
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
         ]
         if let token = csrfToken {
             headers["X-CSRF-Token"] = token
@@ -24,74 +25,60 @@ final class AjaxAPI {
         return headers
     }
 
-    /// 执行登录流程以获取 PHPSESSID (通过 web_token)
-    /// - Parameter webToken: 从 App API 获取的 web_token
-    func loginWithWebToken(_ webToken: String) async throws {
-        let loginURLString = "https://www.pixiv.net/login.php?token=\(webToken)&ref=www.pixiv.net"
-        guard let url = URL(string: loginURLString) else { throw NetworkError.invalidURL }
-
-        // 此请求会由于 Set-Cookie 自动将 PHPSESSID 存入 HTTPCookieStorage.shared
-        _ = try await client.get(
-            from: url, 
-            headers: ["User-Agent": userAgent], 
-            responseType: Data.self
-        )
-        
-        // 登录成功后刷新 CSRF Token
-        try await refreshCSRFToken()
-    }
-
     /// 获取或刷新 CSRF Token
-    /// 从 Pixiv 首页的 __NEXT_DATA__ 中提取
+    /// 从 Pixiv 首页的 HTML 或脚本数据中提取
     func refreshCSRFToken() async throws {
         guard let url = URL(string: "https://www.pixiv.net/") else { throw NetworkError.invalidURL }
-        
+
         let htmlData = try await client.get(
-            from: url, 
-            headers: ["User-Agent": userAgent, "Accept": "text/html"], 
+            from: url,
+            headers: ["User-Agent": userAgent, "Accept": "text/html"],
             responseType: Data.self
         )
         guard let html = String(data: htmlData, encoding: .utf8) else {
             throw NetworkError.invalidResponse
         }
 
-        // 定位 __NEXT_DATA__ 脚本标签
-        let pattern = #"<script id="__NEXT_DATA__" type="application/json">(.*?)</script>"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []),
-              let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
-              let range = Range(match.range(at: 1), in: html) else {
-            throw NetworkError.invalidResponse
+        // 尝试方法 1: 从 __NEXT_DATA__ 中提取
+        let nextDataPattern = #"<script id="__NEXT_DATA__" type="application/json">(.*?)</script>"#
+        if let regex = try? NSRegularExpression(pattern: nextDataPattern, options: [.dotMatchesLineSeparators]),
+           let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+           let range = Range(match.range(at: 1), in: html) {
+
+            let nextDataJson = String(html[range])
+            let decoder = JSONDecoder()
+
+            if let data = nextDataJson.data(using: .utf8),
+               let nextData = try? decoder.decode(JSONValue.self, from: data) {
+                let pageProps = nextData["props"]["pageProps"]
+
+                // 路径 1: props.pageProps.serverSerializedPreloadedState
+                if let stateStr = pageProps["serverSerializedPreloadedState"].stringValue,
+                   let stateData = stateStr.data(using: .utf8),
+                   let decodedState = try? decoder.decode(JSONValue.self, from: stateData),
+                   let token = decodedState["api"]["token"].stringValue {
+                    self.csrfToken = token
+                    return
+                }
+
+                // 路径 2: props.pageProps.preloadedState
+                if let token = pageProps["preloadedState"]["api"]["token"].stringValue {
+                    self.csrfToken = token
+                    return
+                }
+            }
         }
 
-        let nextDataJson = String(html[range])
-        
-        // 解析嵌套的 JSON
-        struct NextData: Decodable {
-            let props: Props
-            struct Props: Decodable {
-                let pageProps: PageProps
-            }
-            struct PageProps: Decodable {
-                let serverSerializedPreloadedState: String
-            }
-        }
-        
-        struct PreloadedState: Decodable {
-            let api: APIState
-            struct APIState: Decodable {
-                let token: String
-            }
+        // 尝试方法 2: 直接在 HTML 中搜索 "token":"..."
+        let tokenPattern = #""token":"([a-f0-9A-Z]{32})""#
+        if let regex = try? NSRegularExpression(pattern: tokenPattern, options: []),
+           let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+           let range = Range(match.range(at: 1), in: html) {
+            self.csrfToken = String(html[range])
+            return
         }
 
-        let decoder = JSONDecoder()
-        do {
-            let nextData = try decoder.decode(NextData.self, from: nextDataJson.data(using: .utf8)!)
-            if let stateData = try? decoder.decode(PreloadedState.self, from: nextData.props.pageProps.serverSerializedPreloadedState.data(using: .utf8)!) {
-                self.csrfToken = stateData.api.token
-            }
-        } catch {
-            throw NetworkError.decodingError(error)
-        }
+        throw NetworkError.invalidResponse
     }
 
     /// 获取搜索建议 (Ajax 版)
@@ -117,6 +104,52 @@ final class AjaxAPI {
 
 // MARK: - Models for Search Suggestion
 
+/// 用于灵活解析不确定结构的 JSON
+enum JSONValue: Decodable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case object([String: JSONValue])
+    case array([JSONValue])
+    case null
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let x = try? container.decode(String.self) {
+            self = .string(x)
+        } else if let x = try? container.decode(Double.self) {
+            self = .number(x)
+        } else if let x = try? container.decode(Bool.self) {
+            self = .bool(x)
+        } else if let x = try? container.decode([String: JSONValue].self) {
+            self = .object(x)
+        } else if let x = try? container.decode([JSONValue].self) {
+            self = .array(x)
+        } else {
+            self = .null
+        }
+    }
+
+    subscript(key: String) -> JSONValue {
+        if case .object(let dict) = self {
+            return dict[key] ?? .null
+        }
+        return .null
+    }
+
+    var stringValue: String? {
+        if case .string(let str) = self {
+            return str
+        }
+        return nil
+    }
+
+    var isNull: Bool {
+        if case .null = self { return true }
+        return false
+    }
+}
+
 struct SearchSuggestionResponse: Decodable {
     let error: Bool
     let body: SuggestionBody
@@ -141,6 +174,7 @@ struct SuggestionTag: Decodable {
     let tag: String
 }
 
+// swiftlint:disable identifier_name
 struct TagTranslation: Decodable {
     let en: String?
     let ko: String?
@@ -148,6 +182,7 @@ struct TagTranslation: Decodable {
     let zh_tw: String?
     let romaji: String?
 }
+// swiftlint:enable identifier_name
 
 struct SuggestionThumbnail: Decodable {
     let id: String

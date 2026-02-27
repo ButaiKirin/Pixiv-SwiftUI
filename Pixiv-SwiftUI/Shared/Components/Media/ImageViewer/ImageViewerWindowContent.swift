@@ -134,7 +134,7 @@ struct ImageViewerWindowContent: View {
                         let multiplier: CGFloat = isTrackpad ? 0.02 : 0.05
                         let zoomFactor = 1.0 + (delta * multiplier)
                         let newScale = min(max(scale * zoomFactor, 1.0), 5.0)
-                        
+
                         if newScale == 1.0 {
                             resetZoom()
                         } else {
@@ -146,7 +146,7 @@ struct ImageViewerWindowContent: View {
                     // Panning logic for trackpad/mouse wheel without modifier
                     let deltaX = event.scrollingDeltaX
                     let deltaY = event.scrollingDeltaY
-                    
+
                     if abs(deltaX) > 0 || abs(deltaY) > 0 {
                         // Use the same constraint logic as DragGesture
                         // We need the geometry size, but since this is a global monitor, 
@@ -155,21 +155,21 @@ struct ImageViewerWindowContent: View {
                         // to somewhere that knows the view size.
                         // For now, let's update simple offset and let the UI constrain it if possible,
                         // but here we deal with the State directly.
-                        
+
                         let currentWindow = event.window
                         let windowSize = currentWindow?.contentView?.frame.size ?? .zero
-                        
+
                         let newOffset = CGSize(
                             width: offset.width + deltaX,
                             height: offset.height + deltaY
                         )
-                        
+
                         // We use the window size as a proxy for the ImageContent size
                         let zoomedWidth = windowSize.width * scale
                         let zoomedHeight = windowSize.height * scale
                         let maxW = max(0, (zoomedWidth - windowSize.width) / 2)
                         let maxH = max(0, (zoomedHeight - windowSize.height) / 2)
-                        
+
                         offset = CGSize(
                             width: min(max(newOffset.width, -maxW), maxW),
                             height: min(max(newOffset.height, -maxH), maxH)

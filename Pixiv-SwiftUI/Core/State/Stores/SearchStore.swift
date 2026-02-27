@@ -14,6 +14,8 @@ class SearchStore {
     var suggestions: [UnifiedSearchSuggestion] = []
     var trendTags: [TrendTag] = []
     var isLoadingTrendTags: Bool = false
+    var recommendedSearchTags: [TrendTag] = []
+    var isLoadingRecommendedTags: Bool = false
     var illustResults: [Illusts] = []
     var userResults: [UserPreviews] = []
     var isLoading: Bool = false
@@ -131,6 +133,78 @@ class SearchStore {
             cache.set(tags, forKey: cacheKey, expiration: trendTagsExpiration)
         } catch {
             print("Failed to fetch trend tags: \(error)")
+        }
+    }
+
+    func fetchRecommendedTags() async {
+        guard AccountStore.shared.isLoggedIn else { return }
+
+        isLoadingRecommendedTags = true
+        defer { isLoadingRecommendedTags = false }
+
+        do {
+            let response = try await api.getSearchSuggestion(mode: "all")
+
+            // 选取出推荐标签或热门标签
+            var displayTags: [SuggestionTag] = []
+            if let tags = response.body.recommendTags?.illust, !tags.isEmpty {
+                displayTags = tags
+            } else if let tags = response.body.recommendByTags?.illust, !tags.isEmpty {
+                displayTags = tags
+            } else {
+                displayTags = response.body.popularTags.illust
+            }
+
+            if displayTags.isEmpty { return }
+
+            // 构建索引用于快速寻找缩略图
+            var thumbnailMap: [String: SuggestionThumbnail] = [:]
+            if let thumbnails = response.body.thumbnails {
+                for thumb in thumbnails {
+                    thumbnailMap[thumb.id] = thumb
+                }
+            }
+
+            // 翻译字典
+            let translations = response.body.tagTranslation ?? [:]
+
+            self.recommendedSearchTags = displayTags.compactMap { tag -> TrendTag? in
+                // 找到第一个 ID 对应的插画
+                guard let firstId = tag.ids.first else { return nil }
+                let idString: String
+                switch firstId {
+                case .string(let str): idString = str
+                case .int(let i): idString = String(i)
+                }
+
+                guard let thumb = thumbnailMap[idString] else { return nil }
+
+                let translatedName = translations[tag.tag]?.zh ?? translations[tag.tag]?.en
+
+                let trendIllust = TrendTagIllust(
+                    id: Int(thumb.id) ?? 0,
+                    title: thumb.title,
+                    imageUrls: ImageUrls(
+                        squareMedium: thumb.url,
+                        medium: thumb.url,
+                        large: thumb.url
+                    ),
+                    width: nil,
+                    height: nil
+                )
+
+                return TrendTag(
+                    tag: tag.tag,
+                    translatedName: translatedName,
+                    illust: trendIllust
+                )
+            }
+        } catch {
+            print("Failed to fetch recommended tags via Ajax, falling back to Trend Tags: \(error)")
+            // 如果 Ajax 失败，Fallback 到普通趋势标签
+            if let tags = try? await api.getIllustTrendTags() {
+                self.recommendedSearchTags = tags
+            }
         }
     }
 

@@ -518,6 +518,15 @@ final class NetworkClient {
 
     /// 解码正常响应
     private func decodeResponse<T: Decodable>(data: Data, responseType: T.Type) throws -> T {
+        // 如果请求者期望原始 Data，直接返回
+        if T.self == Data.self, let rawData = data as? T {
+            return rawData
+        }
+        // 如果期望 String，尝试转换
+        if T.self == String.self, let string = String(data: data, encoding: .utf8) as? T {
+            return string
+        }
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(responseType, from: data)
@@ -675,7 +684,6 @@ enum APIEndpoint {
     static let login = "/auth/token"
     static let authToken = "/auth/token"
     static let refreshToken = "/auth/token"
-    static let webToken = "/v1/user/web_token"
 
     // 推荐相关
     static let recommendIllusts = "/v1/illust/recommended"

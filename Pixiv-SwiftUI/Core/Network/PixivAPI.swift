@@ -14,7 +14,7 @@ final class PixivAPI {
     private(set) var mangaAPI: MangaAPI?
     private(set) var novelAPI: NovelAPI?
     private(set) var ajaxAPI: AjaxAPI?
-    
+
     private var isAjaxSessionReady = false
 
     /// 设置访问令牌并初始化其他API类
@@ -29,7 +29,7 @@ final class PixivAPI {
         bookmarkAPI = BookmarkAPI(authHeaders: headers)
         mangaAPI = MangaAPI(authHeaders: headers)
         novelAPI = NovelAPI(authHeaders: headers)
-        
+
         ajaxAPI = AjaxAPI()
         isAjaxSessionReady = false
     }
@@ -474,17 +474,14 @@ final class PixivAPI {
 
     // MARK: - Ajax API 相关
 
-    /// 初始化 Ajax API 会话 (执行 Web 登录并获取 CSRF Token)
+    /// 初始化 Ajax API 会话 (获取 CSRF Token)
     func setupAjaxSession() async throws {
         if isAjaxSessionReady { return }
-        
-        // 1. 从 App API 获取 web_token
-        let webToken = try await authAPI.getWebToken()
-        
-        // 2. 初始化 Ajax 会话
+
         guard let ajax = ajaxAPI else { throw NetworkError.invalidResponse }
-        try await ajax.loginWithWebToken(webToken)
-        
+        // 目前 web_token 接口 404，暂时只获取 CSRF Token
+        try await ajax.refreshCSRFToken()
+
         isAjaxSessionReady = true
     }
 
