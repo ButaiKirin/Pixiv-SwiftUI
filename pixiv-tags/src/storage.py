@@ -22,8 +22,8 @@ class TagStorage:
         # 增量更新相关
         self.pending_new_tags: List[PixivTag] = []  # 待同步的新标签
         self.pending_freq_ops: List[
-            Tuple[str, int]
-        ] = []  # 待同步的频率操作 [(name, delta), ...]
+            Tuple[str, int, Optional[str]]
+        ] = []  # 待同步的频率和翻译操作 [(name, delta, official_translation), ...]
 
         self.sync_interval: int = int(
             os.getenv("SAVE_INTERVAL", "20")
@@ -63,18 +63,34 @@ class TagStorage:
                 for existing_tag in self.tags:
                     if existing_tag.name == tag.name:
                         existing_tag.frequency += tag.frequency
+                        # 更新内存中的官方翻译（如果有新翻译的话，或者目前为空）
+                        if tag.official_translation:
+                            existing_tag.official_translation = tag.official_translation
+
                         # 虽然内存更新了，但在 SQLite 中我们可以分两次操作：
-                        # 1. 以后台增量方式更新频率 (delta=1)
-                        self.pending_freq_ops.append((tag.name, tag.frequency))
+                        # 1. 以后台增量方式更新频率 (delta=1) 和官方翻译
+                        self.pending_freq_ops.append(
+                            (tag.name, tag.frequency, tag.official_translation)
+                        )
                         break
         return added_count
 
-    def increment_tag_frequency(self, tag_name: str, increment: int = 1) -> bool:
-        """增加标签频率（仅内存操作）"""
+    def increment_tag_frequency(
+        self,
+        tag_name: str,
+        increment: int = 1,
+        official_translation: Optional[str] = None,
+    ) -> bool:
+        """增加标签频率（仅内存操作）并可更新官方翻译"""
         for tag in self.tags:
             if tag.name == tag_name:
                 tag.frequency += increment
-                self.pending_freq_ops.append((tag_name, increment))
+                if official_translation:
+                    tag.official_translation = official_translation
+
+                self.pending_freq_ops.append(
+                    (tag_name, increment, official_translation)
+                )
                 return True
         return False
 
@@ -97,10 +113,10 @@ class TagStorage:
                 logger.debug(f"增量同步: 插入 {inserted} 个新标签")
                 self.pending_new_tags.clear()
 
-            # 同步频率更新
+            # 同步频率和翻译更新
             if self.pending_freq_ops:
-                updated = self.sqlite.apply_frequency_ops(self.pending_freq_ops)
-                logger.debug(f"增量同步: 更新 {updated} 个标签频率")
+                updated = self.sqlite.apply_tag_updates(self.pending_freq_ops)
+                logger.debug(f"增量同步: 更新 {updated} 个标签频率及翻译")
                 self.pending_freq_ops.clear()
 
             self.illusts_since_sync = 0

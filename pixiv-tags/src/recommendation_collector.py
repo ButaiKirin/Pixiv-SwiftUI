@@ -148,14 +148,18 @@ class RecommendationBasedCollector:
                     new_tags_for_illust.append(tag)
                     new_tag_names.append(tag_name)
                 else:
-                    # 重复标签，记录详细信息并增加频率
+                    # 重复标签，记录详细信息并更新频率和官方翻译
                     existing_tags_for_illust.append(tag_name)
+                    official_translation = tag_data.get("translated_name")
+
                     # 获取当前频率并更新
                     current_freq = self.storage.get_tag_frequency(tag_name)
                     existing_tag_details.append(
                         f"'{tag_name}'(频率:{current_freq + 1})"
                     )
-                    self.storage.increment_tag_frequency(tag_name, 1)
+                    self.storage.increment_tag_frequency(
+                        tag_name, 1, official_translation
+                    )
 
             # 将新标签添加到内存
             if new_tags_for_illust:

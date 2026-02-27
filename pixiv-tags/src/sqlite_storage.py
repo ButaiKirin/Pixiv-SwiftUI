@@ -204,19 +204,35 @@ class SQLiteStorage:
             conn.commit()
         return inserted_count
 
-    def apply_frequency_ops(self, ops: List[Tuple[str, int]]) -> int:
-        """批量应用频率更新，返回实际更新的行数"""
+    def apply_tag_updates(self, ops: List[Tuple[str, int, Optional[str]]]) -> int:
+        """批量应用频率和标签更新，返回实际更新的行数"""
         if not ops:
             return 0
 
         self.init()
         with self._get_connection() as conn:
             updated_count = 0
-            for name, delta in ops:
-                cursor = conn.execute(
-                    "UPDATE pixiv_tags SET frequency = frequency + ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?",
-                    (delta, name),
-                )
+            for name, delta, official_translation in ops:
+                if official_translation:
+                    # 如果提供了官方翻译，同时也进行更新。
+                    # 如果原字段为空，或者 Pixiv 更新了，我们的策略是：始终反映最新获取的官方翻译。
+                    cursor = conn.execute(
+                        """
+                        UPDATE pixiv_tags 
+                        SET frequency = frequency + ?, 
+                            official_translation = ?,
+                            updated_at = CURRENT_TIMESTAMP 
+                        WHERE name = ?
+                        """,
+                        (delta, official_translation, name),
+                    )
+                else:
+                    # 仅更新频率
+                    cursor = conn.execute(
+                        "UPDATE pixiv_tags SET frequency = frequency + ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?",
+                        (delta, name),
+                    )
+
                 if cursor.rowcount > 0:
                     updated_count += 1
             conn.commit()
