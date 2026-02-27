@@ -9,5 +9,5 @@ sys.path.insert(0, BASE_DIR)
 
 if __name__ == "__main__":
     uvicorn.run(
-        "webui.app:app", host="127.0.0.1", port=26202, reload=False, log_level="info"
+        "webui.app:app", host="0.0.0.0", port=26202, reload=False, log_level="info"
     )
