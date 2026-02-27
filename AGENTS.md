@@ -116,7 +116,7 @@ Refer to the documentation located in docs/agent/ when necessary.
 
 ## General Guidelines
 - Debug logs can be added; don't remove existing logs
-- Reference flutter/ and aapi.py for implementation patterns
+- Reference aapi.py for Pixiv App API
 - Unless the user explicitly requests, you should not actively modify `Localizable.xcstrings` file.
 -If you have questions that require user confirmation, use the question tool to organize them instead of directly outputting them.
 
