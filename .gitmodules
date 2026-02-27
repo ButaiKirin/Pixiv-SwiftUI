@@ -1,0 +1,3 @@
+[submodule "PixivFE"]
+	path = PixivFE
+	url = https://codeberg.org/PixivFE/PixivFE.git
