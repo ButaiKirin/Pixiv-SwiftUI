@@ -28,8 +28,9 @@ struct UserDetailView: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let viewportWidth = max(proxy.size.width, 1)
             ScrollView {
-                VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     if let detail = store.userDetail {
                         UserDetailHeaderView(
                             detail: detail,
@@ -66,6 +67,7 @@ struct UserDetailView: View {
                         }
                         .pickerStyle(.segmented)
                         .padding()
+                        .frame(maxWidth: .infinity)
 
 // Content
                         switch selectedTab {
@@ -222,7 +224,10 @@ struct UserDetailView: View {
                         .frame(maxWidth: .infinity, minHeight: 200)
                     }
                 }
-                .frame(maxWidth: .infinity)
+                #if canImport(UIKit)
+                .frame(width: viewportWidth, alignment: .topLeading)
+                #endif
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .refreshable {
                 await store.refresh()

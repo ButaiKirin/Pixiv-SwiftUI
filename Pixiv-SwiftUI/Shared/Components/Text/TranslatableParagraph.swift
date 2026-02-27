@@ -27,6 +27,8 @@ struct TranslatableParagraph: View {
                 }
             }
                 .font(font)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
                 .contextMenu {
                     copyButton
@@ -46,6 +48,8 @@ struct TranslatableParagraph: View {
                 }
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .transition(.opacity)
             }
 
