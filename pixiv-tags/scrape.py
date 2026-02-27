@@ -55,7 +55,6 @@ def main():
     max_depth = int(os.getenv("MAX_DEPTH", "3"))
     wait_time_429 = int(os.getenv("PIXIV_429_WAIT_TIME", "300"))  # 默认5分钟
     max_429_retries = int(os.getenv("PIXIV_429_MAX_RETRIES", "3"))  # 默认3次
-    tags_file_path = os.getenv("TAGS_FILE_PATH", "data/tags.json")
     save_interval = int(os.getenv("SAVE_INTERVAL", "20"))
 
     logger.info("🚀 启动 Pixiv 标签收集器 - 推荐流深度优先模式")
@@ -72,7 +71,7 @@ def main():
         )
         auth_api = AuthAPI(client)
         search_api = SearchAPI(client)
-        storage = TagStorage(tags_file_path)
+        storage = TagStorage()
 
         # 设置自动 token 刷新
         auth_api.setup_token_refresh()

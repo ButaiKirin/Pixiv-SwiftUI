@@ -76,36 +76,12 @@ class RecommendationBasedCollector:
         return False
 
     def _try_save(self, force: bool = False):
-        """尝试保存（SQLite 模式：强制同步；JSON 模式：基于搜索次数）"""
+        """SQLite 模式：强制同步"""
         if force:
-            if self.storage.mode == "sqlite":
-                self.storage.force_sync()
-                logger.info(
-                    f"Force-saved {self.storage.get_memory_count()} tags to database"
-                )
-            else:
-                self.storage.save_from_memory()
-                logger.info(
-                    f"Force-saved {self.storage.get_memory_count()} tags to file"
-                )
+            self.storage.save_from_memory()
+            logger.info(f"Force-saved {self.storage.get_memory_count()} tags to file")
             return True
-
-        if self.storage.mode == "sqlite":
-            # SQLite 模式：同步由 _dfs_collect_tags 中的搜索计数处理
-            return True
-        else:
-            # JSON 模式：基于搜索次数触发保存
-            if self.stats.tags_searched % self.save_interval == 0:
-                try:
-                    self.storage.save_from_memory()
-                    logger.info(
-                        f"Auto-saved {self.storage.get_memory_count()} tags to file"
-                    )
-                    return True
-                except Exception as e:
-                    logger.error(f"Failed to auto-save: {e}")
-                    return False
-        return False
+        return True
 
     def _extract_tags_from_illust(self, illust: Dict) -> List[PixivTag]:
         """从插画数据中提取所有标签（包括已存在的）"""
@@ -248,7 +224,8 @@ class RecommendationBasedCollector:
             # 按标签搜索插画
             time.sleep(1)  # 请求间隔
             try:
-                illusts = self.search_api.search_illust_by_tag(current_tag, limit=20)
+                response = self.search_api.search_illust_by_tag(current_tag, limit=20)
+                illusts = response.get("illusts", [])
             except Exception as e:
                 if "429" in str(e) or "Too Many Requests" in str(e):
                     logger.error(f"429错误处理失败: {e}")
@@ -276,20 +253,14 @@ class RecommendationBasedCollector:
                         )
                     )
 
-            # 每 N 次搜索同步一次（基于搜索次数，而非插画计数）
+            # 每 N 次搜索强制同步一次（基于搜索次数）
             if self.stats.tags_searched % self.save_interval == 0:
-                if self.storage.mode == "sqlite":
-                    self.storage.sync_to_database()
-                    logger.debug(
-                        f"自动同步: 已搜索 {self.stats.tags_searched} 个标签，"
-                        f"待同步新标签 {len(self.storage.pending_new_tags)}，"
-                        f"待同步频率操作 {len(self.storage.pending_freq_ops)}"
-                    )
-                else:
-                    self.storage.save_from_memory()
-                    logger.info(
-                        f"Auto-saved {self.storage.get_memory_count()} tags to file"
-                    )
+                self.storage.sync_to_database()
+                logger.debug(
+                    f"自动同步: 已搜索 {self.stats.tags_searched} 个标签，"
+                    f"待处理新标签 {len(self.storage.pending_new_tags)}，"
+                    f"待处理频率操作 {len(self.storage.pending_freq_ops)}"
+                )
 
             # 每10个搜索输出一次进度
             if self.stats.tags_searched % 10 == 0:
