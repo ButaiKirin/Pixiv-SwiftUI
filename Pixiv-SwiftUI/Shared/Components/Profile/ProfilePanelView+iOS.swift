@@ -14,6 +14,10 @@ struct ProfilePanelView: View {
     @State private var cacheSize: String = "计算中..."
     @State private var path = NavigationPath()
     @State private var showingAuthView = false
+    @State private var showWebLoginWebView = false
+    @State private var loginURL: URL?
+    @State private var showingManualPHPSESSIDAlert = false
+    @State private var manualPHPSESSIDInput = ""
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -71,6 +75,48 @@ struct ProfilePanelView: View {
                             showingExportSheet = true
                         }) {
                             Label("导出 Token", systemImage: "key")
+                        }
+                    }
+
+                    Section("Web API 登录状态") {
+                        if accountStore.isWebLoggedIn {
+                            HStack {
+                                Label("已登录", systemImage: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                            Button(role: .destructive, action: {
+                                accountStore.updateCurrentAccountAjaxCookies(
+                                    phpSessId: nil,
+                                    yuidB: nil,
+                                    pAbDId: nil,
+                                    pAbId: nil,
+                                    pAbId2: nil
+                                )
+                            }) {
+                                Label("登出 Web API", systemImage: "rectangle.portrait.and.arrow.right")
+                            }
+                        } else {
+                            HStack {
+                                Label("未登录", systemImage: "xmark.circle.fill")
+                                    .foregroundColor(.red)
+                            }
+                            Button(action: {
+                                let codeVerifier = PKCEHelper.generateCodeVerifier()
+                                let codeChallenge = PKCEHelper.generateCodeChallenge(codeVerifier: codeVerifier)
+                                let urlString = "https://app-api.pixiv.net/web/v1/login?code_challenge=\(codeChallenge)&code_challenge_method=S256&client=pixiv-android"
+                                if let url = URL(string: urlString) {
+                                    self.loginURL = url
+                                    self.showWebLoginWebView = true
+                                }
+                            }) {
+                                Label("通过网页登录", systemImage: "globe")
+                            }
+
+                            Button(action: {
+                                showingManualPHPSESSIDAlert = true
+                            }) {
+                                Label("手动输入 PHPSESSID", systemImage: "keyboard")
+                            }
                         }
                     }
 
@@ -153,6 +199,51 @@ struct ProfilePanelView: View {
             .sheet(isPresented: $showingAuthView) {
                 AuthView(accountStore: accountStore, onGuestMode: nil)
             }
+            .sheet(isPresented: $showWebLoginWebView) {
+                if let url = loginURL {
+                    NavigationStack {
+                        LoginWebView(url: url) { _, cookies in
+                            showWebLoginWebView = false
+                            var phpSessId: String?
+                            var yuidB: String?
+                            var pAbDId: String?
+                            var pAbId: String?
+                            var pAbId2: String?
+
+                            for cookie in cookies where cookie.domain.contains("pixiv.net") {
+                                switch cookie.name {
+                                case "PHPSESSID":
+                                    if cookie.value.contains("_") {
+                                        phpSessId = cookie.value
+                                    }
+                                case "yuid_b": yuidB = cookie.value
+                                case "p_ab_d_id": pAbDId = cookie.value
+                                case "p_ab_id": pAbId = cookie.value
+                                case "p_ab_id_2": pAbId2 = cookie.value
+                                default: break
+                                }
+                            }
+
+                            accountStore.updateCurrentAccountAjaxCookies(
+                                phpSessId: phpSessId,
+                                yuidB: yuidB,
+                                pAbDId: pAbDId,
+                                pAbId: pAbId,
+                                pAbId2: pAbId2
+                            )
+                        }
+                        .navigationTitle(String(localized: "登录 Pixiv Web"))
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(String(localized: "取消")) {
+                                    showWebLoginWebView = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             .alert("确认登出", isPresented: $showingLogoutAlert) {
                 Button("取消", role: .cancel) { }
                 Button("登出", role: .destructive) {
@@ -168,6 +259,26 @@ struct ProfilePanelView: View {
                 }
             } message: {
                 Text("您确定要清空所有图片缓存吗？此操作不可撤销。")
+            }
+            .alert("输入 PHPSESSID", isPresented: $showingManualPHPSESSIDAlert) {
+                TextField("PHPSESSID (需包含下划线)", text: $manualPHPSESSIDInput)
+                Button("确定") {
+                    if !manualPHPSESSIDInput.isEmpty {
+                        accountStore.updateCurrentAccountAjaxCookies(
+                            phpSessId: manualPHPSESSIDInput,
+                            yuidB: nil,
+                            pAbDId: nil,
+                            pAbId: nil,
+                            pAbId2: nil
+                        )
+                        manualPHPSESSIDInput = ""
+                    }
+                }
+                Button("取消", role: .cancel) {
+                    manualPHPSESSIDInput = ""
+                }
+            } message: {
+                Text("通过手动输入 Cookie 中的 PHPSESSID 字段来登录 Web API。")
             }
             .task {
                 await loadCacheSize()

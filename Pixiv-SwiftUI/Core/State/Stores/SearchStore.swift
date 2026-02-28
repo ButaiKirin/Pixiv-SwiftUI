@@ -5,6 +5,8 @@ import Observation
 @MainActor
 @Observable
 class SearchStore {
+    static let shared = SearchStore()
+
     var searchText: String = "" {
         didSet {
             searchTextSubject.send(searchText)
@@ -115,6 +117,7 @@ class SearchStore {
         let cacheKey = CacheManager.trendTagsKey()
 
         if let cached: [TrendTag] = cache.get(forKey: cacheKey) {
+            print("[SearchStore] Use cached trend tags for key: \(cacheKey)")
             self.trendTags = cached
             return
         }
@@ -381,5 +384,12 @@ class SearchStore {
             print("Failed to load more novels: \(error)")
         }
         isLoadingMoreNovels = false
+    }
+
+    func clearMemoryCache() {
+        self.trendTags = []
+        self.recommendedSearchTags = []
+        self.suggestions = []
+        print("[SearchStore] Memory cache cleared")
     }
 }

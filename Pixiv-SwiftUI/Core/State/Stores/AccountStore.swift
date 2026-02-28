@@ -62,6 +62,11 @@ final class AccountStore {
         !isLoggedIn && hasAttemptedLogin
     }
 
+    /// Web API 是否已经登录（包含有效的 PHPSESSID）
+    var isWebLoggedIn: Bool {
+        currentAccount?.webPHPSESSID?.contains("_") == true
+    }
+
     /// 导航请求：用于从 Sheet 中请求主页面进行导航
     var navigationRequest: NavigationRequest?
 
@@ -321,6 +326,7 @@ final class AccountStore {
         // 2. 清理全局 Store 的内存状态
         IllustStore.shared.clearMemoryCache()
         NovelStore.shared.clearMemoryCache()
+        SearchStore.shared.clearMemoryCache()
 
         // 3. 重新加载当前账号的数据
         await UserSettingStore.shared.loadUserSettingAsync()

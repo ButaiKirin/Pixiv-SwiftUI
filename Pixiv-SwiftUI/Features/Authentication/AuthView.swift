@@ -12,30 +12,16 @@ struct AuthView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(ThemeManager.self) var themeManager
     @State private var refreshToken: String = ""
-    @State private var phpSessIdInput: String = ""
-    @State private var showAjaxWebLogin = false
     @State private var codeVerifier: String = ""
-    @State private var loginMode: LoginMode = .main
-    @State private var authStep: AuthStep = .oauth
+    @State private var phpSessId: String = ""
+    @State private var showLoginWebView = false
+    @State private var loginURL: URL?
     @Bindable var accountStore: AccountStore
     var onGuestMode: (() -> Void)?
 
     enum LoginMode {
         case main
         case token
-    }
-
-    enum AuthStep {
-        case oauth
-        case ajaxOptional
-    }
-
-    struct CapturedAjaxCookies {
-        let phpSessId: String
-        let yuidB: String?
-        let pAbDId: String?
-        let pAbId: String?
-        let pAbId2: String?
     }
 
     var body: some View {
@@ -68,31 +54,7 @@ struct AuthView: View {
 
                 Spacer()
 
-                ZStack {
-                    if authStep == .oauth {
-                        if loginMode == .main {
-                            mainLoginView
-                                .transition(.asymmetric(
-                                    insertion: .opacity.combined(with: .move(edge: .leading)),
-                                    removal: .opacity.combined(with: .move(edge: .leading))
-                                ))
-                        } else {
-                            tokenLoginView
-                                .transition(.asymmetric(
-                                    insertion: .opacity.combined(with: .move(edge: .trailing)),
-                                    removal: .opacity.combined(with: .move(edge: .trailing))
-                                ))
-                        }
-                    } else {
-                        ajaxOptionalView
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .move(edge: .trailing)),
-                                removal: .opacity.combined(with: .move(edge: .trailing))
-                            ))
-                    }
-                }
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: loginMode)
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: authStep)
+                unifiedLoginView
 
                 Spacer()
 
@@ -112,76 +74,98 @@ struct AuthView: View {
             }
             .padding(32)
         }
-        .onAppear {
-            if accountStore.isLoggedIn {
-                authStep = .ajaxOptional
-                phpSessIdInput = accountStore.currentAccount?.webPHPSESSID ?? ""
-            }
-        }
-        .onChange(of: accountStore.isLoggedIn) { _, isLoggedIn in
-            guard isLoggedIn else { return }
-            authStep = .ajaxOptional
-            if let webPHPSESSID = accountStore.currentAccount?.webPHPSESSID {
-                phpSessIdInput = webPHPSESSID
-            }
-        }
-        .sheet(isPresented: $showAjaxWebLogin) {
-            AjaxSessionWebLoginSheet { cookies in
-                phpSessIdInput = cookies.phpSessId
-                Task {
-                    await saveAjaxSession(cookies)
-                }
-            }
-        }
         #if os(macOS)
-        .frame(width: 450, height: 600)
+        .frame(width: 450, height: 660)
         #endif
+        .sheet(isPresented: $showLoginWebView) {
+            if let url = loginURL {
+                #if os(macOS)
+                LoginWebView(url: url) { code, cookies in
+                    showLoginWebView = false
+                    handleLoginCallback(code: code, cookies: cookies)
+                }
+                .frame(width: 800, height: 600)
+                #else
+                NavigationStack {
+                    LoginWebView(url: url) { code, cookies in
+                        showLoginWebView = false
+                        handleLoginCallback(code: code, cookies: cookies)
+                    }
+                    .navigationTitle(String(localized: "登录 Pixiv"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(String(localized: "取消")) {
+                                showLoginWebView = false
+                            }
+                        }
+                    }
+                }
+                #endif
+            }
+        }
     }
 
-    var mainLoginView: some View {
-        VStack(spacing: 20) {
+    var unifiedLoginView: some View {
+        VStack(spacing: 24) {
             Button(action: startWebLogin) {
-                Text(String(localized: "登录（OAuth）"))
+                Text(String(localized: "在新窗口中登录（推荐）"))
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
             }
             .buttonStyle(GlassButtonStyle(color: themeManager.currentColor))
 
-            Button(action: {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    loginMode = .token
-                }
-            }) {
-                Text(String(localized: "使用 refresh_token 登录"))
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
+            HStack {
+                VStack { Divider().background(Color.gray) }
+                Text("OR")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                VStack { Divider().background(Color.gray) }
             }
-            .buttonStyle(GlassButtonStyle(color: nil))
 
-        }
-    }
-
-    var tokenLoginView: some View {
-        VStack(spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-Label(String(localized: "刷新令牌"), systemImage: "key.fill")
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(String(localized: "刷新令牌"), systemImage: "key.fill")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                SecureField(String(localized: "输入您的 refresh_token"), text: $refreshToken)
-                    .padding(12)
-                    .background {
-                        if #available(iOS 26.0, macOS 26.0, *) {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.clear)
-                                .glassEffect(in: .rect(cornerRadius: 12))
-                        } else {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.ultraThinMaterial)
+                    SecureField(String(localized: "输入您的 refresh_token（必填）"), text: $refreshToken)
+                        .padding(12)
+                        .background {
+                            if #available(iOS 26.0, macOS 26.0, *) {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.clear)
+                                    .glassEffect(in: .rect(cornerRadius: 12))
+                            } else {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.ultraThinMaterial)
+                            }
                         }
-                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                Label(String(localized: "网页凭证"), systemImage: "safari.fill")
+                        .fontWeight(.semibold)
+
+                    SecureField(String(localized: "输入您的 PHPSESSID（可选）"), text: $phpSessId)
+                        .padding(12)
+                        .background {
+                            if #available(iOS 26.0, macOS 26.0, *) {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.clear)
+                                    .glassEffect(in: .rect(cornerRadius: 12))
+                            } else {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.ultraThinMaterial)
+                            }
+                        }
+
+                    Text(String(localized: "通过 refresh_token 登录将无法访问 Ajax API（部分功能不可用）。如果需要完整功能，请选填 PHPSESSID，或使用上方的新窗口登录。"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Button(action: loginWithToken) {
@@ -190,7 +174,7 @@ Label(String(localized: "刷新令牌"), systemImage: "key.fill")
                         ProgressView()
                             .tint(.white)
                     } else {
-                        Text(String(localized: "登录"))
+                        Text(String(localized: "进入应用"))
                             .font(.headline)
                     }
                 }
@@ -199,73 +183,6 @@ Label(String(localized: "刷新令牌"), systemImage: "key.fill")
             }
             .buttonStyle(GlassButtonStyle(color: themeManager.currentColor))
             .disabled(refreshToken.isEmpty || accountStore.isLoading)
-
-            Button(action: {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    loginMode = .main
-                }
-            }) {
-                Text(String(localized: "返回"))
-                    .font(.subheadline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-            }
-            .buttonStyle(GlassButtonStyle(color: nil))
-        }
-    }
-
-    var ajaxOptionalView: some View {
-        VStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(String(localized: "OAuth 登录已完成"))
-                    .font(.headline)
-                Text(String(localized: "Ajax API 登录是可选项，可通过 WebView 自动获取或手动输入 PHPSESSID。"))
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(action: {
-                showAjaxWebLogin = true
-            }) {
-                Text(String(localized: "通过 WebView 登录 Ajax API（可选）"))
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-            }
-            .buttonStyle(GlassButtonStyle(color: themeManager.currentColor))
-
-            VStack(alignment: .leading, spacing: 8) {
-                Label(String(localized: "手动输入 PHPSESSID"), systemImage: "key.fill")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-
-                SecureField("PHPSESSID", text: $phpSessIdInput)
-                    .onSubmit {
-                        Task {
-                            await saveAjaxSession(phpSessIdInput)
-                        }
-                    }
-                    .padding(12)
-                    .background {
-                        if #available(iOS 26.0, macOS 26.0, *) {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.clear)
-                                .glassEffect(in: .rect(cornerRadius: 12))
-                        } else {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.ultraThinMaterial)
-                        }
-                    }
-            }
-
-            Button(action: finishAndEnterHome) {
-                Text(String(localized: "进入主页"))
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-            }
-            .buttonStyle(GlassButtonStyle(color: themeManager.currentColor))
         }
     }
 
@@ -275,22 +192,52 @@ Label(String(localized: "刷新令牌"), systemImage: "key.fill")
         let urlString = "https://app-api.pixiv.net/web/v1/login?code_challenge=\(codeChallenge)&code_challenge_method=S256&client=pixiv-android"
         guard let url = URL(string: urlString) else { return }
 
+        self.loginURL = url
+        self.showLoginWebView = true
+    }
+
+    func handleLoginCallback(code: String, cookies: [HTTPCookie]) {
         Task {
-            do {
-                let callbackURL = try await AuthenticationManager.shared.startLogin(url: url, callbackScheme: "pixiv")
-                if let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
-                   let code = components.queryItems?.first(where: { $0.name == "code" })?.value {
-                    await accountStore.loginWithCode(code, codeVerifier: codeVerifier)
-                    if accountStore.isLoggedIn {
-                        authStep = .ajaxOptional
-                        phpSessIdInput = accountStore.currentAccount?.webPHPSESSID ?? ""
+            // 登录 OAuth
+            await accountStore.loginWithCode(code, codeVerifier: codeVerifier)
+
+            if accountStore.isLoggedIn {
+                // 提取 .pixiv.net 下的 Cookie
+                var phpSessId: String?
+                var yuidB: String?
+                var pAbDId: String?
+                var pAbId: String?
+                var pAbId2: String?
+
+                for cookie in cookies where cookie.domain.contains("pixiv.net") {
+                    switch cookie.name {
+                    case "PHPSESSID":
+                        // 取出包含 _ 的 PHPSESSID
+                        if cookie.value.contains("_") {
+                            phpSessId = cookie.value
+                        }
+                    case "yuid_b":
+                        yuidB = cookie.value
+                    case "p_ab_d_id":
+                        pAbDId = cookie.value
+                    case "p_ab_id":
+                        pAbId = cookie.value
+                    case "p_ab_id_2":
+                        pAbId2 = cookie.value
+                    default:
+                        break
                     }
                 }
-            } catch is CancellationError {
-                // 用户取消，无需处理
-            } catch {
-                // 处理其他错误
-                print("登录失败: \(error)")
+
+                accountStore.updateCurrentAccountAjaxCookies(
+                    phpSessId: phpSessId,
+                    yuidB: yuidB,
+                    pAbDId: pAbDId,
+                    pAbId: pAbId,
+                    pAbId2: pAbId2
+                )
+
+                dismiss()
             }
         }
     }
@@ -299,218 +246,23 @@ Label(String(localized: "刷新令牌"), systemImage: "key.fill")
         Task {
             await accountStore.loginWithRefreshToken(refreshToken)
             if accountStore.isLoggedIn {
-                authStep = .ajaxOptional
-                phpSessIdInput = accountStore.currentAccount?.webPHPSESSID ?? ""
+                if !phpSessId.isEmpty {
+                    accountStore.updateCurrentAccountAjaxCookies(
+                        phpSessId: phpSessId,
+                        yuidB: nil,
+                        pAbDId: nil,
+                        pAbId: nil,
+                        pAbId2: nil
+                    )
+                }
+                dismiss()
             }
         }
-    }
-
-    func saveAjaxSession(_ phpsessidRaw: String) async {
-        let phpsessid = phpsessidRaw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !phpsessid.isEmpty else { return }
-
-        accountStore.updateCurrentAccountAjaxCookies(
-            phpSessId: phpsessid,
-            yuidB: nil,
-            pAbDId: nil,
-            pAbId: nil,
-            pAbId2: nil
-        )
-        await updateAjaxSessionValidationResult(isFromWebView: false)
-    }
-
-    func saveAjaxSession(_ cookies: CapturedAjaxCookies) async {
-        accountStore.updateCurrentAccountAjaxCookies(
-            phpSessId: cookies.phpSessId,
-            yuidB: cookies.yuidB,
-            pAbDId: cookies.pAbDId,
-            pAbId: cookies.pAbId,
-            pAbId2: cookies.pAbId2
-        )
-        await updateAjaxSessionValidationResult(isFromWebView: true)
-    }
-
-    private func updateAjaxSessionValidationResult(isFromWebView: Bool) async {
-        let isValid = await PixivAPI.shared.validateAjaxSession()
-
-        if isValid {
-            accountStore.error = nil
-            return
-        }
-
-        accountStore.clearCurrentAccountPHPSESSID()
-        phpSessIdInput = ""
-        accountStore.error = .authenticationError("Ajax 会话校验失败：当前 PHPSESSID 不是登录态，请在 WebView 中先完成 Pixiv 网页登录")
     }
 
     func finishAndEnterHome() {
         accountStore.markLoginAttempted()
         dismiss()
-    }
-}
-
-private struct AjaxSessionWebLoginSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let onPHPSESSIDCaptured: (AuthView.CapturedAjaxCookies) -> Void
-    @State private var capturedCookies: AuthView.CapturedAjaxCookies?
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 12) {
-                AjaxSessionWebLoginView { cookies in
-                    capturedCookies = cookies
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                Divider()
-
-                Text(String(localized: "登录成功后将自动捕获 PHPSESSID"))
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal)
-            }
-            .navigationTitle(String(localized: "Ajax 登录"))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "关闭")) {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "完成")) {
-                        if let capturedCookies {
-                            onPHPSESSIDCaptured(capturedCookies)
-                        }
-                        dismiss()
-                    }
-                    .disabled(capturedCookies == nil)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #if os(macOS)
-        .frame(minWidth: 900, minHeight: 640)
-        #endif
-    }
-}
-
-private struct AjaxSessionWebLoginView: AuthWebViewRepresentable {
-    let onPHPSESSIDCaptured: (AuthView.CapturedAjaxCookies) -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onPHPSESSIDCaptured: onPHPSESSIDCaptured)
-    }
-
-    #if os(macOS)
-    func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default()
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.navigationDelegate = context.coordinator
-        if let url = URL(string: APIEndpoint.webBaseURL) {
-            webView.load(URLRequest(url: url))
-        }
-        return webView
-    }
-
-    func updateNSView(_ nsView: WKWebView, context: Context) {
-    }
-    #else
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default()
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.navigationDelegate = context.coordinator
-        if let url = URL(string: APIEndpoint.webBaseURL) {
-            webView.load(URLRequest(url: url))
-        }
-        return webView
-    }
-
-    func updateUIView(_ uiView: WKWebView, context: Context) {
-    }
-    #endif
-
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        private let onPHPSESSIDCaptured: (AuthView.CapturedAjaxCookies) -> Void
-
-        init(onPHPSESSIDCaptured: @escaping (AuthView.CapturedAjaxCookies) -> Void) {
-            self.onPHPSESSIDCaptured = onPHPSESSIDCaptured
-        }
-
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
-            webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
-                guard let sessionCookie = self.selectBestSessionCookie(from: cookies) else {
-                    return
-                }
-
-                guard !sessionCookie.value.isEmpty else {
-                    return
-                }
-                let cookieMap = cookies.reduce(into: [String: String]()) { partialResult, cookie in
-                    guard self.isPixivWebDomain(cookie.domain) else { return }
-                    partialResult[cookie.name] = cookie.value
-                }
-
-                let captured = AuthView.CapturedAjaxCookies(
-                    phpSessId: sessionCookie.value,
-                    yuidB: cookieMap["yuid_b"],
-                    pAbDId: cookieMap["p_ab_d_id"],
-                    pAbId: cookieMap["p_ab_id"],
-                    pAbId2: cookieMap["p_ab_id_2"]
-                )
-
-                DispatchQueue.main.async {
-                    self.onPHPSESSIDCaptured(captured)
-                }
-            }
-        }
-
-        private func selectBestSessionCookie(from cookies: [HTTPCookie]) -> HTTPCookie? {
-            let candidates = cookies.filter { cookie in
-                cookie.name == "PHPSESSID" && isPixivWebDomain(cookie.domain)
-            }
-
-            guard !candidates.isEmpty else { return nil }
-
-            return candidates.max(by: { lhs, rhs in
-                cookiePriority(lhs) < cookiePriority(rhs)
-            })
-        }
-
-        private func isPixivWebDomain(_ domain: String) -> Bool {
-            let normalized = domain.lowercased()
-            if normalized.contains("accounts.pixiv.net") {
-                return false
-            }
-
-            return normalized == "www.pixiv.net"
-                || normalized == ".pixiv.net"
-                || normalized.hasSuffix(".pixiv.net")
-        }
-
-        private func cookiePriority(_ cookie: HTTPCookie) -> Int {
-            let domain = cookie.domain.lowercased()
-            var score = 0
-
-            switch domain {
-            case "www.pixiv.net":
-                score += 300
-            case ".pixiv.net":
-                score += 200
-            default:
-                if domain.hasSuffix(".pixiv.net") {
-                    score += 100
-                }
-            }
-
-            if cookie.path == "/" {
-                score += 10
-            }
-
-            return score
-        }
     }
 }
 

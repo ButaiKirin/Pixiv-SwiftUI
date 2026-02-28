@@ -364,27 +364,6 @@
         }
       }
     },
-    "Ajax API" : {
-
-    },
-    "Ajax API 状态" : {
-
-    },
-    "Ajax API 登录是可选项，可通过 WebView 自动获取或手动输入 PHPSESSID。" : {
-
-    },
-    "Ajax 会话已保存（仅 PHPSESSID）" : {
-
-    },
-    "Ajax 会话已保存（包含辅助 cookies）" : {
-
-    },
-    "Ajax 会话已清除" : {
-
-    },
-    "Ajax 登录" : {
-
-    },
     "API Key" : {
       "localizations" : {
         "en" : {
@@ -593,12 +572,6 @@
         }
       }
     },
-    "OAuth 登录已完成" : {
-
-    },
-    "OAuth 登录成功，可继续设置 Ajax API 登录，或直接进入主页" : {
-
-    },
     "OpenAI 配置" : {
       "localizations" : {
         "en" : {
@@ -608,6 +581,9 @@
           }
         }
       }
+    },
+    "OR" : {
+
     },
     "P" : {
       "localizations" : {
@@ -626,6 +602,9 @@
       }
     },
     "PHPSESSID" : {
+
+    },
+    "PHPSESSID (需包含下划线)" : {
 
     },
     "Pixiv" : {
@@ -879,6 +858,12 @@
           }
         }
       }
+    },
+    "Web API" : {
+
+    },
+    "Web API 登录状态" : {
+
     },
     "万字" : {
       "localizations" : {
@@ -1184,9 +1169,6 @@
     "使用 {targetLang} 作为目标语言占位符。小说翻译提示词将在单段翻译和批量翻译中生效。" : {
 
     },
-    "使用 refresh_token 登录" : {
-
-    },
     "使用 Token 登录" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1223,9 +1205,6 @@
           }
         }
       }
-    },
-    "保存 PHPSESSID" : {
-
     },
     "保存…" : {
       "localizations" : {
@@ -2270,6 +2249,9 @@
         }
       }
     },
+    "在新窗口中登录（推荐）" : {
+
+    },
     "在浏览器中打开" : {
 
     },
@@ -2955,9 +2937,6 @@
         }
       }
     },
-    "已捕获 PHPSESSID，可点击完成返回" : {
-
-    },
     "已暂停" : {
       "localizations" : {
         "en" : {
@@ -3260,6 +3239,9 @@
       }
     },
     "手动输入 PHPSESSID" : {
+
+    },
+    "手动输入 PHPSESSID..." : {
 
     },
     "执行全量同步" : {
@@ -4778,6 +4760,9 @@
         }
       }
     },
+    "登出 Web API" : {
+
+    },
     "登录" : {
       "localizations" : {
         "en" : {
@@ -4788,10 +4773,10 @@
         }
       }
     },
-    "登录 Ajax API" : {
+    "登录 Pixiv" : {
 
     },
-    "登录（OAuth）" : {
+    "登录 Pixiv Web" : {
 
     },
     "登录以保存收藏、关注画师" : {
@@ -4873,9 +4858,6 @@
           }
         }
       }
-    },
-    "登录成功后将自动捕获 PHPSESSID" : {
-
     },
     "登录账号" : {
       "localizations" : {
@@ -5489,6 +5471,9 @@
         }
       }
     },
+    "网页凭证" : {
+
+    },
     "翻译" : {
       "localizations" : {
         "en" : {
@@ -5741,9 +5726,6 @@
         }
       }
     },
-    "请先完成 OAuth 登录后再配置 Ajax API 登录。" : {
-
-    },
     "请先登录" : {
       "localizations" : {
         "en" : {
@@ -5806,6 +5788,9 @@
         }
       }
     },
+    "请输入类似 xxxx_xxxx 的 Cookie 值" : {
+
+    },
     "请选择一个项目" : {
       "localizations" : {
         "en" : {
@@ -5865,7 +5850,14 @@
         }
       }
     },
+    "输入 PHPSESSID" : {
+
+    },
+    "输入您的 PHPSESSID（可选）" : {
+
+    },
     "输入您的 refresh_token" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5874,6 +5866,9 @@
           }
         }
       }
+    },
+    "输入您的 refresh_token（必填）" : {
+
     },
     "边距" : {
       "localizations" : {
@@ -5921,6 +5916,7 @@
       }
     },
     "返回" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5956,7 +5952,7 @@
         }
       }
     },
-    "进入主页" : {
+    "进入应用" : {
 
     },
     "连载中" : {
@@ -6072,7 +6068,10 @@
         }
       }
     },
-    "通过 WebView 登录 Ajax API（可选）" : {
+    "通过 refresh_token 登录将无法访问 Ajax API（部分功能不可用）。如果需要完整功能，请选填 PHPSESSID，或使用上方的新窗口登录。" : {
+
+    },
+    "通过手动输入 Cookie 中的 PHPSESSID 字段来登录 Web API。" : {
 
     },
     "通过绕过 SNI 嗅探来实现免代理直连 Pixiv。" : {
@@ -6084,6 +6083,12 @@
           }
         }
       }
+    },
+    "通过网页登录" : {
+
+    },
+    "通过网页获取凭证" : {
+
     },
     "邮箱" : {
       "localizations" : {

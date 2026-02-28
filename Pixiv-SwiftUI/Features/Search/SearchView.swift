@@ -5,7 +5,7 @@ import PhotosUI
 #endif
 
 struct SearchView: View {
-    @State private var store = SearchStore()
+    @State private var store = SearchStore.shared
     @State private var selectedTag: String = ""
     @State private var showClearHistoryConfirmation = false
     @State private var showBlockToast = false
@@ -478,7 +478,7 @@ struct SearchView: View {
                     .padding(.horizontal)
                 }
 
-                if !store.recommendedSearchTags.isEmpty {
+                if !store.recommendedSearchTags.isEmpty && accountStore.isWebLoggedIn {
                     Text("推荐标签")
                         .font(.headline)
                         .padding(.horizontal)

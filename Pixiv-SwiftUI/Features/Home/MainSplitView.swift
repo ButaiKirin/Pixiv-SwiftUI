@@ -12,6 +12,10 @@ struct MainSplitView: View {
     @State private var showDataExport = false
     @State private var showClearCacheAlert = false
     @State private var showClearHistoryAlert = false
+    @State private var showWebLoginWebView = false
+    @State private var loginURL: URL?
+    @State private var showingManualPHPSESSIDAlert = false
+    @State private var manualPHPSESSIDInput = ""
     @Environment(UserSettingStore.self) var userSettingStore
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
@@ -85,6 +89,36 @@ struct MainSplitView: View {
                                 Button("个人主页") {
                                     selectedItem = .recommend
                                     accountStore.requestNavigation(.userDetail(account.userId))
+                                }
+
+                                Divider()
+
+                                Menu("Web API") {
+                                    if accountStore.isWebLoggedIn {
+                                        Button("登出 Web API") {
+                                            accountStore.updateCurrentAccountAjaxCookies(
+                                                phpSessId: nil,
+                                                yuidB: nil,
+                                                pAbDId: nil,
+                                                pAbId: nil,
+                                                pAbId2: nil
+                                            )
+                                        }
+                                    } else {
+                                        Button("通过网页获取凭证") {
+                                            let codeVerifier = PKCEHelper.generateCodeVerifier()
+                                            let codeChallenge = PKCEHelper.generateCodeChallenge(codeVerifier: codeVerifier)
+                                            let urlString = "https://app-api.pixiv.net/web/v1/login?code_challenge=\(codeChallenge)&code_challenge_method=S256&client=pixiv-android"
+                                            if let url = URL(string: urlString) {
+                                                self.loginURL = url
+                                                self.showWebLoginWebView = true
+                                            }
+                                        }
+
+                                        Button("手动输入 PHPSESSID...") {
+                                            showingManualPHPSESSIDAlert = true
+                                        }
+                                    }
                                 }
 
                                 Divider()
@@ -221,6 +255,61 @@ struct MainSplitView: View {
         }
         .sheet(isPresented: $showDataExport) {
             DataExportView()
+        }
+        .sheet(isPresented: $showWebLoginWebView) {
+            if let url = loginURL {
+                LoginWebView(url: url) { _, cookies in
+                    showWebLoginWebView = false
+                    var phpSessId: String?
+                    var yuidB: String?
+                    var pAbDId: String?
+                    var pAbId: String?
+                    var pAbId2: String?
+
+                    for cookie in cookies where cookie.domain.contains("pixiv.net") {
+                        switch cookie.name {
+                        case "PHPSESSID":
+                            if cookie.value.contains("_") {
+                                phpSessId = cookie.value
+                            }
+                        case "yuid_b": yuidB = cookie.value
+                        case "p_ab_d_id": pAbDId = cookie.value
+                        case "p_ab_id": pAbId = cookie.value
+                        case "p_ab_id_2": pAbId2 = cookie.value
+                        default: break
+                        }
+                    }
+
+                    accountStore.updateCurrentAccountAjaxCookies(
+                        phpSessId: phpSessId,
+                        yuidB: yuidB,
+                        pAbDId: pAbDId,
+                        pAbId: pAbId,
+                        pAbId2: pAbId2
+                    )
+                }
+                .frame(width: 800, height: 660)
+            }
+        }
+        .alert("输入 PHPSESSID", isPresented: $showingManualPHPSESSIDAlert) {
+            TextField("请输入类似 xxxx_xxxx 的 Cookie 值", text: $manualPHPSESSIDInput)
+            Button("确定") {
+                if !manualPHPSESSIDInput.isEmpty {
+                    accountStore.updateCurrentAccountAjaxCookies(
+                        phpSessId: manualPHPSESSIDInput,
+                        yuidB: nil,
+                        pAbDId: nil,
+                        pAbId: nil,
+                        pAbId2: nil
+                    )
+                    manualPHPSESSIDInput = ""
+                }
+            }
+            Button("取消", role: .cancel) {
+                manualPHPSESSIDInput = ""
+            }
+        } message: {
+            Text("通过手动输入 Cookie 中的 PHPSESSID 字段来登录 Web API。")
         }
         #if os(macOS)
         .handleMenuCommands(

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SearchResultView: View {
     let word: String
-    @State var store = SearchStore()
+    @State var store = SearchStore.shared
     @State private var selectedTab = 0
     @State private var sortOption: SearchSortOption = .dateDesc
     @State private var novelSortOption: SearchSortOption = .dateDesc

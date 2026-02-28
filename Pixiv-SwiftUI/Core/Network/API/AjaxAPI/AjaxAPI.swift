@@ -139,6 +139,8 @@ final class AjaxAPI {
             throw NetworkError.invalidURL
         }
 
+        print("[AjaxAPI] Fetching search suggestion with cookies: \(cookieHeaderValue ?? "None")")
+
         let response = try await client.get(
             from: url,
             headers: ajaxHeaders,
