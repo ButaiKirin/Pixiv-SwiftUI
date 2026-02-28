@@ -364,6 +364,27 @@
         }
       }
     },
+    "Ajax API" : {
+
+    },
+    "Ajax API 状态" : {
+
+    },
+    "Ajax API 登录是可选项，可通过 WebView 自动获取或手动输入 PHPSESSID。" : {
+
+    },
+    "Ajax 会话已保存（仅 PHPSESSID）" : {
+
+    },
+    "Ajax 会话已保存（包含辅助 cookies）" : {
+
+    },
+    "Ajax 会话已清除" : {
+
+    },
+    "Ajax 登录" : {
+
+    },
     "API Key" : {
       "localizations" : {
         "en" : {
@@ -572,6 +593,12 @@
         }
       }
     },
+    "OAuth 登录已完成" : {
+
+    },
+    "OAuth 登录成功，可继续设置 Ajax API 登录，或直接进入主页" : {
+
+    },
     "OpenAI 配置" : {
       "localizations" : {
         "en" : {
@@ -597,6 +624,9 @@
           }
         }
       }
+    },
+    "PHPSESSID" : {
+
     },
     "Pixiv" : {
       "localizations" : {
@@ -1099,6 +1129,7 @@
 
     },
     "以游客身份浏览" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1153,7 +1184,11 @@
     "使用 {targetLang} 作为目标语言占位符。小说翻译提示词将在单段翻译和批量翻译中生效。" : {
 
     },
+    "使用 refresh_token 登录" : {
+
+    },
     "使用 Token 登录" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1188,6 +1223,9 @@
           }
         }
       }
+    },
+    "保存 PHPSESSID" : {
+
     },
     "保存…" : {
       "localizations" : {
@@ -2917,6 +2955,9 @@
         }
       }
     },
+    "已捕获 PHPSESSID，可点击完成返回" : {
+
+    },
     "已暂停" : {
       "localizations" : {
         "en" : {
@@ -2952,6 +2993,9 @@
           }
         }
       }
+    },
+    "已登录" : {
+
     },
     "已经到底了" : {
       "localizations" : {
@@ -3214,6 +3258,9 @@
           }
         }
       }
+    },
+    "手动输入 PHPSESSID" : {
+
     },
     "执行全量同步" : {
       "localizations" : {
@@ -4741,6 +4788,12 @@
         }
       }
     },
+    "登录 Ajax API" : {
+
+    },
+    "登录（OAuth）" : {
+
+    },
     "登录以保存收藏、关注画师" : {
       "localizations" : {
         "en" : {
@@ -4820,6 +4873,9 @@
           }
         }
       }
+    },
+    "登录成功后将自动捕获 PHPSESSID" : {
+
     },
     "登录账号" : {
       "localizations" : {
@@ -5685,6 +5741,9 @@
         }
       }
     },
+    "请先完成 OAuth 登录后再配置 Ajax API 登录。" : {
+
+    },
     "请先登录" : {
       "localizations" : {
         "en" : {
@@ -5897,6 +5956,9 @@
         }
       }
     },
+    "进入主页" : {
+
+    },
     "连载中" : {
       "localizations" : {
         "en" : {
@@ -6009,6 +6071,9 @@
           }
         }
       }
+    },
+    "通过 WebView 登录 Ajax API（可选）" : {
+
     },
     "通过绕过 SNI 嗅探来实现免代理直连 Pixiv。" : {
       "localizations" : {

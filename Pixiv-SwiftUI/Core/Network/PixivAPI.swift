@@ -16,6 +16,15 @@ final class PixivAPI {
     private(set) var ajaxAPI: AjaxAPI?
 
     private var isAjaxSessionReady = false
+    private var currentAjaxCookies = AjaxSessionCookies()
+
+    private struct AjaxSessionCookies {
+        var phpSessId: String?
+        var yuidB: String?
+        var pAbDId: String?
+        var pAbId: String?
+        var pAbId2: String?
+    }
 
     /// 设置访问令牌并初始化其他API类
     func setAccessToken(_ token: String) {
@@ -31,7 +40,57 @@ final class PixivAPI {
         novelAPI = NovelAPI(authHeaders: headers)
 
         ajaxAPI = AjaxAPI()
+        ajaxAPI?.setSessionCookies(
+            phpSessId: currentAjaxCookies.phpSessId,
+            yuidB: currentAjaxCookies.yuidB,
+            pAbDId: currentAjaxCookies.pAbDId,
+            pAbId: currentAjaxCookies.pAbId,
+            pAbId2: currentAjaxCookies.pAbId2
+        )
         isAjaxSessionReady = false
+    }
+
+    /// 设置 Ajax Web 会话（PHPSESSID）
+    func setAjaxPHPSESSID(_ phpsessid: String?) {
+        setAjaxSessionCookies(
+            phpSessId: phpsessid,
+            yuidB: currentAjaxCookies.yuidB,
+            pAbDId: currentAjaxCookies.pAbDId,
+            pAbId: currentAjaxCookies.pAbId,
+            pAbId2: currentAjaxCookies.pAbId2
+        )
+    }
+
+    /// 设置 Ajax Web 会话（完整 Cookie 组）
+    func setAjaxSessionCookies(
+        phpSessId: String?,
+        yuidB: String?,
+        pAbDId: String?,
+        pAbId: String?,
+        pAbId2: String?
+    ) {
+        currentAjaxCookies.phpSessId = normalizeCookieValue(phpSessId)
+        currentAjaxCookies.yuidB = normalizeCookieValue(yuidB)
+        currentAjaxCookies.pAbDId = normalizeCookieValue(pAbDId)
+        currentAjaxCookies.pAbId = normalizeCookieValue(pAbId)
+        currentAjaxCookies.pAbId2 = normalizeCookieValue(pAbId2)
+
+        ajaxAPI?.setSessionCookies(
+            phpSessId: currentAjaxCookies.phpSessId,
+            yuidB: currentAjaxCookies.yuidB,
+            pAbDId: currentAjaxCookies.pAbDId,
+            pAbId: currentAjaxCookies.pAbId,
+            pAbId2: currentAjaxCookies.pAbId2
+        )
+        isAjaxSessionReady = false
+    }
+
+    private func normalizeCookieValue(_ value: String?) -> String? {
+        let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let normalized, !normalized.isEmpty {
+            return normalized
+        }
+        return nil
     }
 
     // MARK: - Private Helper Methods
@@ -490,5 +549,18 @@ final class PixivAPI {
         try await setupAjaxSession()
         guard let ajax = ajaxAPI else { throw NetworkError.invalidResponse }
         return try await ajax.getSearchSuggestion(mode: mode)
+    }
+
+    /// 校验当前 Ajax 会话是否为登录态
+    func validateAjaxSession() async -> Bool {
+        guard let ajax = ajaxAPI else { return false }
+
+        do {
+            try await ajax.refreshCSRFToken()
+        } catch {
+            return false
+        }
+
+        return await ajax.validateSession()
     }
 }

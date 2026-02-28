@@ -147,9 +147,9 @@ class SearchStore {
 
             // 选取出推荐标签或热门标签
             var displayTags: [SuggestionTag] = []
-            if let tags = response.body.recommendTags?.illust, !tags.isEmpty {
+            if let tags = response.body.recommendByTags?.illust, !tags.isEmpty {
                 displayTags = tags
-            } else if let tags = response.body.recommendByTags?.illust, !tags.isEmpty {
+            } else if let tags = response.body.recommendTags?.illust, !tags.isEmpty {
                 displayTags = tags
             } else {
                 displayTags = response.body.popularTags.illust

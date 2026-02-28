@@ -179,6 +179,11 @@ final class AccountPersist: Codable, Identifiable {
     var isPremium: Int
     var xRestrict: Int
     var isMailAuthorized: Int
+    var webPHPSESSID: String?
+    var webYuidB: String?
+    var webPAbDId: String?
+    var webPAbId: String?
+    var webPAbId2: String?
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
@@ -193,9 +198,14 @@ final class AccountPersist: Codable, Identifiable {
         case isPremium = "is_premium"
         case xRestrict = "x_restrict"
         case isMailAuthorized = "is_mail_authorized"
+        case webPHPSESSID = "web_phpsessid"
+        case webYuidB = "web_yuid_b"
+        case webPAbDId = "web_p_ab_d_id"
+        case webPAbId = "web_p_ab_id"
+        case webPAbId2 = "web_p_ab_id_2"
     }
 
-    init(userId: String, userImage: String, accessToken: String, refreshToken: String, deviceToken: String, name: String, account: String, mailAddress: String, passWord: String, isPremium: Int, xRestrict: Int, isMailAuthorized: Int) {
+    init(userId: String, userImage: String, accessToken: String, refreshToken: String, deviceToken: String, name: String, account: String, mailAddress: String, passWord: String, isPremium: Int, xRestrict: Int, isMailAuthorized: Int, webPHPSESSID: String? = nil, webYuidB: String? = nil, webPAbDId: String? = nil, webPAbId: String? = nil, webPAbId2: String? = nil) {
         self.userId = userId
         self.userImage = userImage
         self.accessToken = accessToken
@@ -208,6 +218,11 @@ final class AccountPersist: Codable, Identifiable {
         self.isPremium = isPremium
         self.xRestrict = xRestrict
         self.isMailAuthorized = isMailAuthorized
+        self.webPHPSESSID = webPHPSESSID
+        self.webYuidB = webYuidB
+        self.webPAbDId = webPAbDId
+        self.webPAbId = webPAbId
+        self.webPAbId2 = webPAbId2
     }
 
     required init(from decoder: Decoder) throws {
@@ -224,6 +239,11 @@ final class AccountPersist: Codable, Identifiable {
         self.isPremium = try container.decode(Int.self, forKey: .isPremium)
         self.xRestrict = try container.decode(Int.self, forKey: .xRestrict)
         self.isMailAuthorized = try container.decode(Int.self, forKey: .isMailAuthorized)
+        self.webPHPSESSID = try container.decodeIfPresent(String.self, forKey: .webPHPSESSID)
+        self.webYuidB = try container.decodeIfPresent(String.self, forKey: .webYuidB)
+        self.webPAbDId = try container.decodeIfPresent(String.self, forKey: .webPAbDId)
+        self.webPAbId = try container.decodeIfPresent(String.self, forKey: .webPAbId)
+        self.webPAbId2 = try container.decodeIfPresent(String.self, forKey: .webPAbId2)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -240,6 +260,11 @@ final class AccountPersist: Codable, Identifiable {
         try container.encode(isPremium, forKey: .isPremium)
         try container.encode(xRestrict, forKey: .xRestrict)
         try container.encode(isMailAuthorized, forKey: .isMailAuthorized)
+        try container.encodeIfPresent(webPHPSESSID, forKey: .webPHPSESSID)
+        try container.encodeIfPresent(webYuidB, forKey: .webYuidB)
+        try container.encodeIfPresent(webPAbDId, forKey: .webPAbDId)
+        try container.encodeIfPresent(webPAbId, forKey: .webPAbId)
+        try container.encodeIfPresent(webPAbId2, forKey: .webPAbId2)
     }
 }
 

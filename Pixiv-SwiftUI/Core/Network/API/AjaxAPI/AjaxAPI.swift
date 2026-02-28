@@ -8,6 +8,11 @@ import Foundation
 final class AjaxAPI {
     private let client = NetworkClient.shared
     private var csrfToken: String?
+    private var phpSessId: String?
+    private var yuidB: String?
+    private var pAbDId: String?
+    private var pAbId: String?
+    private var pAbId2: String?
 
     // 使用桌面版 User-Agent 以确保与桌面端 Ajax 接口结构一致
     private let userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -19,10 +24,36 @@ final class AjaxAPI {
             "Accept": "application/json",
             "X-Requested-With": "XMLHttpRequest"
         ]
+
+        if let cookieHeaderValue {
+            headers["Cookie"] = cookieHeaderValue
+        }
+
         if let token = csrfToken {
             headers["X-CSRF-Token"] = token
         }
         return headers
+    }
+
+    /// 设置当前 Ajax 会话的 PHPSESSID
+    func setPHPSESSID(_ phpsessid: String?) {
+        setSessionCookies(phpSessId: phpsessid, yuidB: nil, pAbDId: nil, pAbId: nil, pAbId2: nil)
+    }
+
+    /// 设置当前 Ajax 会话 cookies
+    func setSessionCookies(
+        phpSessId: String?,
+        yuidB: String?,
+        pAbDId: String?,
+        pAbId: String?,
+        pAbId2: String?
+    ) {
+        self.phpSessId = normalizeCookieValue(phpSessId)
+        self.yuidB = normalizeCookieValue(yuidB)
+        self.pAbDId = normalizeCookieValue(pAbDId)
+        self.pAbId = normalizeCookieValue(pAbId)
+        self.pAbId2 = normalizeCookieValue(pAbId2)
+        csrfToken = nil
     }
 
     /// 获取或刷新 CSRF Token
@@ -32,7 +63,7 @@ final class AjaxAPI {
 
         let htmlData = try await client.get(
             from: url,
-            headers: ["User-Agent": userAgent, "Accept": "text/html"],
+            headers: csrfFetchHeaders,
             responseType: Data.self
         )
         guard let html = String(data: htmlData, encoding: .utf8) else {
@@ -81,6 +112,20 @@ final class AjaxAPI {
         throw NetworkError.invalidResponse
     }
 
+    private var csrfFetchHeaders: [String: String] {
+        var headers = [
+            "User-Agent": userAgent,
+            "Accept": "text/html",
+            "Referer": "https://www.pixiv.net/"
+        ]
+
+        if let cookieHeaderValue {
+            headers["Cookie"] = cookieHeaderValue
+        }
+
+        return headers
+    }
+
     /// 获取搜索建议 (Ajax 版)
     /// 包含热门标签、推荐标签及其图标等
     func getSearchSuggestion(mode: String = "all", lang: String = "zh") async throws -> SearchSuggestionResponse {
@@ -94,12 +139,75 @@ final class AjaxAPI {
             throw NetworkError.invalidURL
         }
 
-        return try await client.get(
+        let response = try await client.get(
             from: url,
             headers: ajaxHeaders,
             responseType: SearchSuggestionResponse.self
         )
+
+        return response
     }
+
+    func validateSession() async -> Bool {
+        guard let url = URL(string: APIEndpoint.ajaxBaseURL + "/settings/self") else { return false }
+
+        do {
+            let data = try await client.get(
+                from: url,
+                headers: ajaxHeaders,
+                responseType: Data.self
+            )
+
+            guard
+                let jsonObject = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let errorFlag = jsonObject["error"] as? Bool
+            else {
+                return false
+            }
+
+            if errorFlag {
+                return false
+            }
+
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private var cookieHeaderValue: String? {
+        var pairs: [String] = []
+
+        if let phpSessId {
+            pairs.append("PHPSESSID=\(phpSessId)")
+        }
+        if let yuidB {
+            pairs.append("yuid_b=\(yuidB)")
+        }
+        if let pAbDId {
+            pairs.append("p_ab_d_id=\(pAbDId)")
+        }
+        if let pAbId {
+            pairs.append("p_ab_id=\(pAbId)")
+        }
+        if let pAbId2 {
+            pairs.append("p_ab_id_2=\(pAbId2)")
+        }
+
+        if pairs.isEmpty {
+            return nil
+        }
+        return pairs.joined(separator: "; ")
+    }
+
+    private func normalizeCookieValue(_ value: String?) -> String? {
+        let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let normalized, !normalized.isEmpty {
+            return normalized
+        }
+        return nil
+    }
+
 }
 
 // MARK: - Models for Search Suggestion
@@ -159,6 +267,7 @@ struct SuggestionBody: Decodable {
     let popularTags: SuggestionTagGroup
     let recommendTags: SuggestionTagGroup?
     let recommendByTags: SuggestionTagGroup?
+    let myFavoriteTags: [String]?
     let tagTranslation: [String: TagTranslation]?
     let thumbnails: [SuggestionThumbnail]?
 }

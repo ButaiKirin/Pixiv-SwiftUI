@@ -28,6 +28,30 @@ final class AccountStore {
         currentAccount?.userId ?? "guest"
     }
 
+    /// 当前账号是否已配置 Ajax Web 会话
+    var hasAjaxSession: Bool {
+        guard let session = currentAccount?.webPHPSESSID else { return false }
+        return !session.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private struct AjaxCookieState {
+        let phpSessId: String?
+        let yuidB: String?
+        let pAbDId: String?
+        let pAbId: String?
+        let pAbId2: String?
+    }
+
+    private var currentAjaxCookies: AjaxCookieState {
+        AjaxCookieState(
+            phpSessId: currentAccount?.webPHPSESSID,
+            yuidB: currentAccount?.webYuidB,
+            pAbDId: currentAccount?.webPAbDId,
+            pAbId: currentAccount?.webPAbId,
+            pAbId2: currentAccount?.webPAbId2
+        )
+    }
+
     private let lastUserIdKey = "last_active_user_id"
 
     /// 标记用户已尝试过登录（用于游客模式判断）
@@ -88,14 +112,29 @@ final class AccountStore {
             self.currentAccount = savedAccount
             self.isLoggedIn = true
             PixivAPI.shared.setAccessToken(savedAccount.accessToken)
+            PixivAPI.shared.setAjaxSessionCookies(
+                phpSessId: savedAccount.webPHPSESSID,
+                yuidB: savedAccount.webYuidB,
+                pAbDId: savedAccount.webPAbDId,
+                pAbId: savedAccount.webPAbId,
+                pAbId2: savedAccount.webPAbId2
+            )
         } else if let firstAccount = accounts.first {
             self.currentAccount = firstAccount
             self.isLoggedIn = true
             PixivAPI.shared.setAccessToken(firstAccount.accessToken)
+            PixivAPI.shared.setAjaxSessionCookies(
+                phpSessId: firstAccount.webPHPSESSID,
+                yuidB: firstAccount.webYuidB,
+                pAbDId: firstAccount.webPAbDId,
+                pAbId: firstAccount.webPAbId,
+                pAbId2: firstAccount.webPAbId2
+            )
             UserDefaults.standard.set(firstAccount.userId, forKey: lastUserIdKey)
         } else {
             self.currentAccount = nil
             self.isLoggedIn = false
+            PixivAPI.shared.setAjaxSessionCookies(phpSessId: nil, yuidB: nil, pAbDId: nil, pAbId: nil, pAbId2: nil)
         }
     }
 
@@ -179,6 +218,9 @@ final class AccountStore {
             existing.isPremium = account.isPremium
             existing.xRestrict = account.xRestrict
             existing.isMailAuthorized = account.isMailAuthorized
+            if let webPHPSESSID = account.webPHPSESSID {
+                existing.webPHPSESSID = webPHPSESSID
+            }
         } else {
             // 添加新账户
             context.insert(account)
@@ -241,6 +283,13 @@ final class AccountStore {
         self.currentAccount = account
         self.isLoggedIn = true
         PixivAPI.shared.setAccessToken(account.accessToken)
+        PixivAPI.shared.setAjaxSessionCookies(
+            phpSessId: account.webPHPSESSID,
+            yuidB: account.webYuidB,
+            pAbDId: account.webPAbDId,
+            pAbId: account.webPAbId,
+            pAbId2: account.webPAbId2
+        )
         UserDefaults.standard.set(account.userId, forKey: lastUserIdKey)
 
         await onAccountChanged()
@@ -256,6 +305,7 @@ final class AccountStore {
             if currentAccount == nil {
                 UserDefaults.standard.removeObject(forKey: lastUserIdKey)
                 PixivAPI.shared.setAccessToken("")
+                PixivAPI.shared.setAjaxSessionCookies(phpSessId: nil, yuidB: nil, pAbDId: nil, pAbId: nil, pAbId2: nil)
             }
         }
 
@@ -278,6 +328,67 @@ final class AccountStore {
 
         // 4. 重置导航或其他全局状态
         self.navigationRequest = nil
+    }
+
+    /// 更新当前账号的 Ajax Web 会话（PHPSESSID）
+    func updateCurrentAccountPHPSESSID(_ phpsessid: String?) {
+        updateCurrentAccountAjaxCookies(
+            phpSessId: phpsessid,
+            yuidB: currentAjaxCookies.yuidB,
+            pAbDId: currentAjaxCookies.pAbDId,
+            pAbId: currentAjaxCookies.pAbId,
+            pAbId2: currentAjaxCookies.pAbId2
+        )
+    }
+
+    /// 更新当前账号的 Ajax Web 会话 cookies
+    func updateCurrentAccountAjaxCookies(
+        phpSessId: String?,
+        yuidB: String?,
+        pAbDId: String?,
+        pAbId: String?,
+        pAbId2: String?
+    ) {
+        guard let current = currentAccount else { return }
+
+        current.webPHPSESSID = normalizeCookieValue(phpSessId)
+        current.webYuidB = normalizeCookieValue(yuidB)
+        current.webPAbDId = normalizeCookieValue(pAbDId)
+        current.webPAbId = normalizeCookieValue(pAbId)
+        current.webPAbId2 = normalizeCookieValue(pAbId2)
+
+        do {
+            try dataContainer.save()
+        } catch {
+            self.error = AppError.databaseError("无法保存 Ajax 会话: \(error)")
+        }
+
+        PixivAPI.shared.setAjaxSessionCookies(
+            phpSessId: current.webPHPSESSID,
+            yuidB: current.webYuidB,
+            pAbDId: current.webPAbDId,
+            pAbId: current.webPAbId,
+            pAbId2: current.webPAbId2
+        )
+    }
+
+    /// 清除当前账号的 Ajax Web 会话
+    func clearCurrentAccountPHPSESSID() {
+        updateCurrentAccountAjaxCookies(
+            phpSessId: nil,
+            yuidB: nil,
+            pAbDId: nil,
+            pAbId: nil,
+            pAbId2: nil
+        )
+    }
+
+    private func normalizeCookieValue(_ value: String?) -> String? {
+        let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let normalized, !normalized.isEmpty {
+            return normalized
+        }
+        return nil
     }
 
     /// 更新用户信息
