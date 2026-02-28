@@ -23,6 +23,8 @@ struct RecommendView: View {
 
     @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
 
+    @State private var searchStore = SearchStore.shared
+
     private let cache = CacheManager.shared
     private let expiration: CacheExpiration = .minutes(5)
     private let usersCacheKey = "recommend_users_0"
@@ -74,6 +76,14 @@ struct RecommendView: View {
                         recommendedUsers: $recommendedUsers,
                         isLoadingRecommended: $isLoadingRecommended,
                         onRefresh: loadRecommendedUsers
+                    )
+
+                    Spacer()
+                        .frame(height: 16)
+
+                    RecommendTagGroupList(
+                        tagGroups: searchStore.recommendByTagGroups,
+                        isLoading: searchStore.isLoadingRecommendedTags
                     )
 
                     Spacer()
@@ -195,7 +205,7 @@ struct RecommendView: View {
                         defer { isInitialLoadInProgress = false }
 
                         if isLoggedIn {
-                            _ = await (loadRecommendedUsersAsync(), refreshIllusts(forceRefresh: false))
+                            _ = await (loadRecommendedUsersAsync(), refreshIllusts(forceRefresh: false), searchStore.fetchRecommendedTags())
                         } else {
                             await refreshIllusts(forceRefresh: false)
                         }
@@ -203,6 +213,11 @@ struct RecommendView: View {
                 } else {
                     if isLoggedIn {
                         loadRecommendedUsers()
+                        if searchStore.recommendByTagGroups.isEmpty {
+                            Task {
+                                await searchStore.fetchRecommendedTags()
+                            }
+                        }
                     }
                 }
             }
@@ -240,7 +255,7 @@ struct RecommendView: View {
                     hasCachedUsers = false
                     isLoadingRecommended = true
                     if accountStore.isLoggedIn {
-                        _ = await (refreshIllusts(), refreshRecommendedUsers())
+                        _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags())
                     } else {
                         await refreshIllusts()
                     }
@@ -515,7 +530,11 @@ struct RecommendView: View {
     }
 
     private func refreshAll() async {
-        _ = await (refreshIllusts(), refreshRecommendedUsers())
+        if isLoggedIn {
+            _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags())
+        } else {
+            _ = await refreshIllusts()
+        }
     }
 }
 

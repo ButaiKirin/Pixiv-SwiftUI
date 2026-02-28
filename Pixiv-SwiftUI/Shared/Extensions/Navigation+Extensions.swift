@@ -58,6 +58,9 @@ extension View {
                         )
                     }
             }
+            .navigationDestination(for: RecommendByTagTarget.self) { target in
+                RecommendByTagView(target: target)
+            }
             .navigationDestination(for: NovelRankingType.self) { _ in
                 NovelRankingPage()
                     .onAppear {

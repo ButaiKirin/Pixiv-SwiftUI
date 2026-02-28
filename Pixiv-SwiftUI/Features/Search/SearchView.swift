@@ -389,7 +389,7 @@ struct SearchView: View {
                     .bold()
                     .foregroundColor(.white)
                     .lineLimit(1)
-                if let translated = tag.translatedName {
+                if let translated = TagTranslationService.shared.getDisplayTranslation(for: tag.tag, officialTranslation: tag.translatedName), !translated.isEmpty {
                     Text(translated)
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.8))

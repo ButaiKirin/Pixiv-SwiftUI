@@ -18,6 +18,7 @@ class SearchStore {
     var isLoadingTrendTags: Bool = false
     var recommendedSearchTags: [TrendTag] = []
     var isLoadingRecommendedTags: Bool = false
+    var recommendByTagGroups: [RecommendByTagGroup] = []
     var illustResults: [Illusts] = []
     var userResults: [UserPreviews] = []
     var isLoading: Bool = false
@@ -171,6 +172,38 @@ class SearchStore {
             // 翻译字典
             let translations = response.body.tagTranslation ?? [:]
 
+            // 构建分组标签对象用于首页的展示 (recommendByTags)
+            if let tagGroups = response.body.recommendByTags?.illust {
+                self.recommendByTagGroups = tagGroups.compactMap { tag -> RecommendByTagGroup? in
+                    let illusts: [TrendTagIllust] = tag.ids.compactMap { idItem in
+                        let idString: String
+                        switch idItem {
+                        case .string(let str): idString = str
+                        case .int(let i): idString = String(i)
+                        }
+
+                        guard let thumb = thumbnailMap[idString] else { return nil }
+                        return TrendTagIllust(
+                            id: Int(thumb.id) ?? 0,
+                            title: thumb.title,
+                            imageUrls: ImageUrls(
+                                squareMedium: thumb.url,
+                                medium: thumb.url,
+                                large: thumb.url
+                            ),
+                            width: nil,
+                            height: nil
+                        )
+                    }
+                    guard !illusts.isEmpty else { return nil }
+                    let officialTrans = translations[tag.tag]?.zh ?? translations[tag.tag]?.en
+                    let translatedName = TagTranslationService.shared.getDisplayTranslation(for: tag.tag, officialTranslation: officialTrans)
+                    return RecommendByTagGroup(tag: tag.tag, translatedName: translatedName, illusts: illusts)
+                }
+            } else {
+                self.recommendByTagGroups = []
+            }
+
             self.recommendedSearchTags = displayTags.compactMap { tag -> TrendTag? in
                 // 找到第一个 ID 对应的插画
                 guard let firstId = tag.ids.first else { return nil }
@@ -182,7 +215,8 @@ class SearchStore {
 
                 guard let thumb = thumbnailMap[idString] else { return nil }
 
-                let translatedName = translations[tag.tag]?.zh ?? translations[tag.tag]?.en
+                let officialTrans = translations[tag.tag]?.zh ?? translations[tag.tag]?.en
+                let translatedName = TagTranslationService.shared.getDisplayTranslation(for: tag.tag, officialTranslation: officialTrans)
 
                 let trendIllust = TrendTagIllust(
                     id: Int(thumb.id) ?? 0,

@@ -14,3 +14,10 @@ struct SauceNaoMatch: Hashable, Sendable {
 struct SauceNaoResultTarget: Hashable, Sendable {
     let requestId: UUID
 }
+
+/// 基于标签推荐的导航目标
+struct RecommendByTagTarget: Hashable, Sendable {
+    let tag: String
+    let translatedName: String?
+    let illustIds: [Int]
+}

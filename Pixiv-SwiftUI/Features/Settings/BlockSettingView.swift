@@ -27,7 +27,7 @@ struct BlockSettingView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(info.name)
                                 .font(.body)
-                            if let translated = info.translatedName, !translated.isEmpty {
+                            if let translated = TagTranslationService.shared.getDisplayTranslation(for: info.name, officialTranslation: info.translatedName), !translated.isEmpty {
                                 Text(translated)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
