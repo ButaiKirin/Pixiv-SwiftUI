@@ -39,11 +39,41 @@ final class IllustStore {
     private let cache = CacheManager.shared
     private let expiration: CacheExpiration = .minutes(5)
 
-    var cacheKeyDailyRanking: String { "illust_ranking_daily" }
-    var cacheKeyDailyMaleRanking: String { "illust_ranking_daily_male" }
-    var cacheKeyDailyFemaleRanking: String { "illust_ranking_daily_female" }
-    var cacheKeyWeeklyRanking: String { "illust_ranking_weekly" }
-    var cacheKeyMonthlyRanking: String { "illust_ranking_monthly" }
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }
+
+    func cacheKeyDailyRanking(dateString: String? = nil) -> String {
+        let key = "illust_ranking_daily"
+        if let dateString = dateString { return "\(key)_\(dateString)" }
+        return key
+    }
+
+    func cacheKeyDailyMaleRanking(dateString: String? = nil) -> String {
+        let key = "illust_ranking_daily_male"
+        if let dateString = dateString { return "\(key)_\(dateString)" }
+        return key
+    }
+
+    func cacheKeyDailyFemaleRanking(dateString: String? = nil) -> String {
+        let key = "illust_ranking_daily_female"
+        if let dateString = dateString { return "\(key)_\(dateString)" }
+        return key
+    }
+
+    func cacheKeyWeeklyRanking(dateString: String? = nil) -> String {
+        let key = "illust_ranking_weekly"
+        if let dateString = dateString { return "\(key)_\(dateString)" }
+        return key
+    }
+
+    func cacheKeyMonthlyRanking(dateString: String? = nil) -> String {
+        let key = "illust_ranking_monthly"
+        if let dateString = dateString { return "\(key)_\(dateString)" }
+        return key
+    }
 
     private var currentUserId: String {
         AccountStore.shared.currentUserId
@@ -333,8 +363,11 @@ final class IllustStore {
 
     // MARK: - 排行榜
 
-    func loadDailyRanking(forceRefresh: Bool = false) async {
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKeyDailyRanking) {
+    func loadDailyRanking(date: Date? = nil, forceRefresh: Bool = false) async {
+        let dateString = date.map { dateFormatter.string(from: $0) }
+        let cacheKey = cacheKeyDailyRanking(dateString: dateString)
+
+        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
             self.dailyRankingIllusts = cached.illusts
             self.nextUrlDailyRanking = cached.nextUrl
             return
@@ -350,17 +383,20 @@ final class IllustStore {
         defer { isLoadingRanking = false }
 
         do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.day.rawValue)
+            let result = try await api.getIllustRanking(mode: IllustRankingMode.day.rawValue, date: dateString)
             self.dailyRankingIllusts = result.illusts
             self.nextUrlDailyRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKeyDailyRanking, expiration: expiration)
+            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
         } catch {
             print("Failed to load daily ranking illusts: \(error)")
         }
     }
 
-    func loadDailyMaleRanking(forceRefresh: Bool = false) async {
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKeyDailyMaleRanking) {
+    func loadDailyMaleRanking(date: Date? = nil, forceRefresh: Bool = false) async {
+        let dateString = date.map { dateFormatter.string(from: $0) }
+        let cacheKey = cacheKeyDailyMaleRanking(dateString: dateString)
+
+        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
             self.dailyMaleRankingIllusts = cached.illusts
             self.nextUrlDailyMaleRanking = cached.nextUrl
             return
@@ -375,17 +411,20 @@ final class IllustStore {
         defer { isLoadingRanking = false }
 
         do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.dayMale.rawValue)
+            let result = try await api.getIllustRanking(mode: IllustRankingMode.dayMale.rawValue, date: dateString)
             self.dailyMaleRankingIllusts = result.illusts
             self.nextUrlDailyMaleRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKeyDailyMaleRanking, expiration: expiration)
+            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
         } catch {
             print("Failed to load daily male ranking illusts: \(error)")
         }
     }
 
-    func loadDailyFemaleRanking(forceRefresh: Bool = false) async {
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKeyDailyFemaleRanking) {
+    func loadDailyFemaleRanking(date: Date? = nil, forceRefresh: Bool = false) async {
+        let dateString = date.map { dateFormatter.string(from: $0) }
+        let cacheKey = cacheKeyDailyFemaleRanking(dateString: dateString)
+
+        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
             self.dailyFemaleRankingIllusts = cached.illusts
             self.nextUrlDailyFemaleRanking = cached.nextUrl
             return
@@ -400,17 +439,20 @@ final class IllustStore {
         defer { isLoadingRanking = false }
 
         do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.dayFemale.rawValue)
+            let result = try await api.getIllustRanking(mode: IllustRankingMode.dayFemale.rawValue, date: dateString)
             self.dailyFemaleRankingIllusts = result.illusts
             self.nextUrlDailyFemaleRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKeyDailyFemaleRanking, expiration: expiration)
+            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
         } catch {
             print("Failed to load daily female ranking illusts: \(error)")
         }
     }
 
-    func loadWeeklyRanking(forceRefresh: Bool = false) async {
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKeyWeeklyRanking) {
+    func loadWeeklyRanking(date: Date? = nil, forceRefresh: Bool = false) async {
+        let dateString = date.map { dateFormatter.string(from: $0) }
+        let cacheKey = cacheKeyWeeklyRanking(dateString: dateString)
+
+        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
             self.weeklyRankingIllusts = cached.illusts
             self.nextUrlWeeklyRanking = cached.nextUrl
             return
@@ -425,17 +467,20 @@ final class IllustStore {
         defer { isLoadingRanking = false }
 
         do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.week.rawValue)
+            let result = try await api.getIllustRanking(mode: IllustRankingMode.week.rawValue, date: dateString)
             self.weeklyRankingIllusts = result.illusts
             self.nextUrlWeeklyRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKeyWeeklyRanking, expiration: expiration)
+            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
         } catch {
             print("Failed to load weekly ranking illusts: \(error)")
         }
     }
 
-    func loadMonthlyRanking(forceRefresh: Bool = false) async {
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKeyMonthlyRanking) {
+    func loadMonthlyRanking(date: Date? = nil, forceRefresh: Bool = false) async {
+        let dateString = date.map { dateFormatter.string(from: $0) }
+        let cacheKey = cacheKeyMonthlyRanking(dateString: dateString)
+
+        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
             self.monthlyRankingIllusts = cached.illusts
             self.nextUrlMonthlyRanking = cached.nextUrl
             return
@@ -450,21 +495,21 @@ final class IllustStore {
         defer { isLoadingRanking = false }
 
         do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.month.rawValue)
+            let result = try await api.getIllustRanking(mode: IllustRankingMode.month.rawValue, date: dateString)
             self.monthlyRankingIllusts = result.illusts
             self.nextUrlMonthlyRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKeyMonthlyRanking, expiration: expiration)
+            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
         } catch {
             print("Failed to load monthly ranking illusts: \(error)")
         }
     }
 
-    func loadAllRankings(forceRefresh: Bool = false) async {
-        await loadDailyRanking(forceRefresh: forceRefresh)
-        await loadDailyMaleRanking(forceRefresh: forceRefresh)
-        await loadDailyFemaleRanking(forceRefresh: forceRefresh)
-        await loadWeeklyRanking(forceRefresh: forceRefresh)
-        await loadMonthlyRanking(forceRefresh: forceRefresh)
+    func loadAllRankings(date: Date? = nil, forceRefresh: Bool = false) async {
+        await loadDailyRanking(date: date, forceRefresh: forceRefresh)
+        await loadDailyMaleRanking(date: date, forceRefresh: forceRefresh)
+        await loadDailyFemaleRanking(date: date, forceRefresh: forceRefresh)
+        await loadWeeklyRanking(date: date, forceRefresh: forceRefresh)
+        await loadMonthlyRanking(date: date, forceRefresh: forceRefresh)
     }
 
     // swiftlint:disable cyclomatic_complexity

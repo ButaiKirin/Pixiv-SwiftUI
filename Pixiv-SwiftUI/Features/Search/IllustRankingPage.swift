@@ -3,6 +3,7 @@ import SwiftUI
 struct IllustRankingPage: View {
     @Environment(IllustStore.self) var store
     @State private var selectedMode: IllustRankingMode = .day
+    @State private var selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
     @State private var isLoading = false
     @State private var error: String?
     @Environment(UserSettingStore.self) var settingStore
@@ -55,13 +56,27 @@ struct IllustRankingPage: View {
         GeometryReader { _ in
             ScrollView {
                 VStack(spacing: 0) {
-                    Picker(String(localized: "排行类别"), selection: $selectedMode) {
-                        ForEach(rankingTypes) { type in
-                            Text(type.title)
-                                .tag(type.mode)
+                    VStack(spacing: 12) {
+                        Picker(String(localized: "排行类别"), selection: $selectedMode) {
+                            ForEach(rankingTypes) { type in
+                                Text(type.title)
+                                    .tag(type.mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        HStack {
+                            Text(String(localized: "日期"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            DatePicker("", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
+                                .labelsHidden()
+                                #if os(macOS)
+                                .controlSize(.small)
+                                #endif
                         }
                     }
-                    .pickerStyle(.segmented)
                     .padding()
 
                     if illusts.isEmpty && isLoading {
@@ -118,23 +133,30 @@ struct IllustRankingPage: View {
             #endif
             .task {
                 isLoading = true
-                await store.loadAllRankings()
+                await store.loadAllRankings(date: selectedDate)
                 isLoading = false
             }
             .refreshable {
-                await store.loadAllRankings(forceRefresh: true)
+                await store.loadAllRankings(date: selectedDate, forceRefresh: true)
             }
             .toolbar {
                 #if os(macOS)
                 ToolbarItem {
-                    RefreshButton(refreshAction: { await store.loadAllRankings(forceRefresh: true) })
+                    RefreshButton(refreshAction: { await store.loadAllRankings(date: selectedDate, forceRefresh: true) })
                 }
                 #endif
             }
             .onChange(of: selectedMode) { _, _ in
                 isLoading = true
                 Task {
-                    await store.loadAllRankings()
+                    await store.loadAllRankings(date: selectedDate)
+                    isLoading = false
+                }
+            }
+            .onChange(of: selectedDate) { _, _ in
+                isLoading = true
+                Task {
+                    await store.loadAllRankings(date: selectedDate, forceRefresh: true)
                     isLoading = false
                 }
             }
@@ -142,7 +164,7 @@ struct IllustRankingPage: View {
             .onChange(of: accountStore.currentUserId) { _, _ in
                 Task {
                     isLoading = true
-                    await store.loadAllRankings(forceRefresh: true)
+                    await store.loadAllRankings(date: selectedDate, forceRefresh: true)
                     isLoading = false
                 }
             }
