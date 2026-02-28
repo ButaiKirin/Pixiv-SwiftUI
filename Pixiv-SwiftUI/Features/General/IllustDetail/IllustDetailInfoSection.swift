@@ -115,6 +115,23 @@ struct IllustDetailInfoSection: View {
                 }
             }
 
+            if let series = illust.series {
+                NavigationLink(value: series) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "rectangle.stack.fill")
+                        Text(series.title ?? String(localized: "系列"))
+                            .lineLimit(1)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+
             #if os(macOS)
             HStack(spacing: 4) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")

@@ -88,6 +88,43 @@ final class IllustAPI {
         return (response.illusts, response.nextUrl)
     }
 
+    /// 获取系列插画列表
+    func getIllustSeries(
+        seriesId: Int,
+        filter: String = "for_ios",
+        offset: Int = 0
+    ) async throws -> IllustSeriesResponse {
+        var components = URLComponents(string: APIEndpoint.baseURL + "/v1/illust/series")
+        components?.queryItems = [
+            URLQueryItem(name: "illust_series_id", value: String(seriesId)),
+            URLQueryItem(name: "filter", value: filter),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ]
+
+        guard let url = components?.url else {
+            throw NetworkError.invalidURL
+        }
+
+        return try await client.get(
+            from: url,
+            headers: authHeaders,
+            responseType: IllustSeriesResponse.self
+        )
+    }
+
+    /// 通过 URL 获取系列插画列表（用于分页）
+    func getIllustSeriesByURL(_ urlString: String) async throws -> IllustSeriesResponse {
+        guard let url = URL(string: urlString) else {
+            throw NetworkError.invalidURL
+        }
+
+        return try await client.get(
+            from: url,
+            headers: authHeaders,
+            responseType: IllustSeriesResponse.self
+        )
+    }
+
     /// 通过 URL 获取排行榜插画列表（用于分页）
     func getRankingIllustsByURL(_ urlString: String) async throws -> (illusts: [Illusts], nextUrl: String?) {
         guard let url = URL(string: urlString) else {

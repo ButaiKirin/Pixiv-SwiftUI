@@ -8,7 +8,7 @@ final class PixivAPI {
 
     private let authAPI = AuthAPI()
     private var searchAPI: SearchAPI?
-    private var illustAPI: IllustAPI?
+    private(set) var illustAPI: IllustAPI?
     private var userAPI: UserAPI?
     private var bookmarkAPI: BookmarkAPI?
     private(set) var mangaAPI: MangaAPI?

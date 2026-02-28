@@ -34,6 +34,14 @@ extension View {
                         )
                     }
             }
+            .navigationDestination(for: IllustSeries.self) { series in
+                IllustSeriesView(seriesId: series.id)
+                    .onAppear {
+                        print(
+                            "[pixivNavigationDestinations] IllustSeries destination triggered: seriesId=\(series.id)"
+                        )
+                    }
+            }
             .navigationDestination(for: User.self) { user in
                 UserDetailView(userId: user.id.stringValue)
                     .onAppear {
