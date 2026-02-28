@@ -96,6 +96,43 @@
 
 > 由于 SwiftData 的兼容性问题，App 不支持更旧的系统版本。
 
+## 编译指南
+
+如果你希望自行编译本项目，请确保你的开发环境满足以下要求：
+- Xcode 16.0+
+- Swift 6.0
+- macOS 15.0+ (推荐)
+
+### 1. 克隆仓库
+```bash
+git clone https://github.com/Eslzzyl/Pixiv-SwiftUI.git
+cd Pixiv-SwiftUI
+```
+
+### 2. 准备资源文件 (关键)
+项目依赖 `Resources/tags.json` 文件进行编译。如果该文件缺失，编译会报错。你可以通过以下任一方式准备该文件：
+
+- **自动化生成**（推荐）：
+  执行 `pixiv-tags` 目录下的导出脚本：
+  ```bash
+  cd pixiv-tags
+  python3 export_tags.py
+  cd ..
+  ```
+  该脚本会在数据库缺失时自动生成一个空的 `tags.json` 模版。
+
+- **手动创建**：
+  在项目根目录下手动创建一个包含基本结构的文件：
+  ```bash
+  mkdir -p Resources
+  echo '{"timestamp": "2026-01-01T00:00:00", "tags": {}}' > Resources/tags.json
+  ```
+
+### 3. 使用 Xcode 编译
+1. 双击打开 `Pixiv-SwiftUI.xcodeproj`。
+2. 选择对应的 Scheme（Debug/Release）和平台 (iOS 或 macOS)。
+3. 点击 `Build` (Cmd + B) 或 `Run` (Cmd + R)。
+
 ## 安装方式
 
 - iOS/iPadOS：到 Release 中下载最新版本的 ipa 包并使用 AltStore 等方式侧载安装。
