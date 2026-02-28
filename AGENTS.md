@@ -116,7 +116,8 @@ Refer to the documentation located in docs/agent/ when necessary.
 
 ## General Guidelines
 - Debug logs can be added; don't remove existing logs
-- Reference aapi.py for Pixiv App API
+- Reference ./pixivpy for Pixiv App API
+- Reference ./PixivFE and ./ajax-api-docs for Pixiv Web Ajax API
 - Unless the user explicitly requests, you should not actively modify `Localizable.xcstrings` file.
 -If you have questions that require user confirmation, use the question tool to organize them instead of directly outputting them.
 
