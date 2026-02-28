@@ -75,6 +75,11 @@ final class PixivAPI {
         currentAjaxCookies.pAbId = normalizeCookieValue(pAbId)
         currentAjaxCookies.pAbId2 = normalizeCookieValue(pAbId2)
 
+        // Ajax API 不依赖 App API token；当用户仅配置了 Web Cookies 时也应可用。
+        if ajaxAPI == nil {
+            ajaxAPI = AjaxAPI()
+        }
+
         ajaxAPI?.setSessionCookies(
             phpSessId: currentAjaxCookies.phpSessId,
             yuidB: currentAjaxCookies.yuidB,

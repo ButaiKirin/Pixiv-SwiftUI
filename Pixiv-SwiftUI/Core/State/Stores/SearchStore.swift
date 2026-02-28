@@ -122,7 +122,12 @@ class SearchStore {
     }
 
     func fetchRecommendedTags(forceRefresh: Bool = false) async {
-        guard AccountStore.shared.isLoggedIn else { return }
+        // 推荐标签 / 为你推荐标签依赖 Pixiv Web Ajax 会话（cookies）。
+        // 没有有效的 Web 登录时不要请求，也不要用热门标签兜底，避免“推荐=热门”的错乱。
+        guard AccountStore.shared.isWebLoggedIn else {
+            print("[SearchStore] Skip fetching recommended tags: Web(Ajax) not logged in")
+            return
+        }
 
         let tagsKey = CacheManager.recommendedTagsKey()
         let groupsKey = CacheManager.recommendByTagGroupsKey()
@@ -142,13 +147,8 @@ class SearchStore {
         do {
             let response = try await api.getSearchSuggestion(mode: "all")
 
-            // 选取出推荐标签或热门标签
-            var displayTags: [SuggestionTag] = []
-            if let tags = response.body.recommendTags?.illust, !tags.isEmpty {
-                displayTags = tags
-            } else {
-                displayTags = response.body.popularTags.illust
-            }
+            // 只展示“推荐标签”。热门标签由 App API 的趋势标签模块单独展示。
+            let displayTags: [SuggestionTag] = response.body.recommendTags?.illust ?? []
 
             if displayTags.isEmpty && (response.body.recommendByTags?.illust.isEmpty ?? true) { return }
 
@@ -232,12 +232,10 @@ class SearchStore {
             cache.set(self.recommendedSearchTags, forKey: tagsKey, expiration: recommendedTagsExpiration)
             cache.set(self.recommendByTagGroups, forKey: groupsKey, expiration: recommendedTagsExpiration)
         } catch {
-            print("Failed to fetch recommended tags via Ajax, falling back to Trend Tags: \(error)")
-            // 如果 Ajax 失败，Fallback 到普通趋势标签
-            if let tags = try? await api.getIllustTrendTags() {
-                self.recommendedSearchTags = tags
-                cache.set(tags, forKey: tagsKey, expiration: recommendedTagsExpiration)
-            }
+            // Ajax 失败时不做热门标签兜底：避免推荐内容错误地变成热门标签。
+            // 保留当前内存中的推荐数据（可能来自上一次成功或缓存命中）。
+            print("[SearchStore] Failed to fetch recommended tags via Ajax: \(error)")
+            print("[SearchStore] Ajax state: isLoggedIn=\(AccountStore.shared.isLoggedIn), isWebLoggedIn=\(AccountStore.shared.isWebLoggedIn), hasAjaxSession=\(AccountStore.shared.hasAjaxSession)")
         }
     }
 

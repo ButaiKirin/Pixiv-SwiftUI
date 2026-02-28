@@ -101,13 +101,20 @@ final class AjaxAPI {
         }
 
         // 尝试方法 2: 直接在 HTML 中搜索 "token":"..."
-        let tokenPattern = #""token":"([a-f0-9A-Z]{32})""#
+        // token 长度在不同版本/页面结构下可能变化，这里放宽为 32~128 位 hex。
+        let tokenPattern = #""token":"([0-9a-fA-F]{32,128})""#
         if let regex = try? NSRegularExpression(pattern: tokenPattern, options: []),
            let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
            let range = Range(match.range(at: 1), in: html) {
             self.csrfToken = String(html[range])
             return
         }
+
+        #if DEBUG
+        let prefix = String(html.prefix(240))
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        print("[AjaxAPI] Failed to extract CSRF token. htmlLength=\(html.count), hasNextData=\(html.contains("__NEXT_DATA__")), prefix=\(prefix)")
+        #endif
 
         throw NetworkError.invalidResponse
     }

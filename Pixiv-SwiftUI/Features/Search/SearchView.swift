@@ -277,6 +277,9 @@ struct SearchView: View {
             }
             .task {
                 await store.fetchTrendTags()
+            }
+            .task(id: accountStore.isWebLoggedIn) {
+                guard accountStore.isWebLoggedIn else { return }
                 await store.fetchRecommendedTags()
             }
             .pixivNavigationDestinations()

@@ -29,6 +29,16 @@ final class NetworkClient {
         NetworkModeStore.shared.useDirectConnection
     }
 
+    private func supportsDirectConnection(host: String) -> Bool {
+        // 直连模式的目标是 Pixiv 相关域名；对其他域名不应启用直连。
+        host.contains("pixiv.net") || host.contains("pximg.net") || host.contains("pixivision.net")
+    }
+
+    private func shouldUseDirectConnection(for url: URL) -> Bool {
+        guard useDirectConnection, let host = url.host else { return false }
+        return supportsDirectConnection(host: host)
+    }
+
     /// 发送 GET 请求
     func get<T: Decodable>(
         from url: URL,
@@ -36,7 +46,7 @@ final class NetworkClient {
         responseType: T.Type,
         isLongContent: Bool = false
     ) async throws -> T {
-        if useDirectConnection {
+        if shouldUseDirectConnection(for: url) {
             return try await directGet(from: url, headers: headers, responseType: responseType, isLongContent: isLongContent)
         }
         return try await urlSessionGet(from: url, headers: headers, responseType: responseType, isLongContent: isLongContent)
@@ -50,7 +60,7 @@ final class NetworkClient {
         responseType: T.Type,
         isLongContent: Bool = false
     ) async throws -> T {
-        if useDirectConnection {
+        if shouldUseDirectConnection(for: url) {
             return try await directPost(to: url, body: body, headers: headers, responseType: responseType, isLongContent: isLongContent)
         }
         return try await urlSessionPost(to: url, body: body, headers: headers, responseType: responseType, isLongContent: isLongContent)
@@ -82,7 +92,7 @@ final class NetworkClient {
         destinationURL: URL? = nil,
         onProgress: (@Sendable (Int64, Int64?) -> Void)? = nil
     ) async throws -> (URL, URLResponse) {
-        if useDirectConnection {
+        if shouldUseDirectConnection(for: url) {
             return try await directDownloadWithByteProgress(from: url, headers: headers, destinationURL: destinationURL, onProgress: onProgress)
         }
         return try await urlSessionDownloadWithByteProgress(from: url, headers: headers, destinationURL: destinationURL, onProgress: onProgress)
@@ -436,16 +446,22 @@ final class NetworkClient {
     }
 
     private func endpointForHost(_ host: String) -> PixivEndpoint {
-        if host.contains("oauth.secure.pixiv.net") || host.contains("oauth.pixiv.net") {
+        if host.contains("pximg.net") {
+            return .image
+        } else if host.contains("pixivision.net") {
+            return .pixivision
+        } else if host.contains("oauth.secure.pixiv.net") || host.contains("oauth.pixiv.net") {
             return .oauth
         } else if host.contains("app-api.pixiv.net") || host.contains("api.pixiv.net") {
             return .api
         } else if host.contains("accounts.pixiv.net") {
             return .accounts
-        } else if host.contains("pixivision.net") {
-            return .pixivision
+        } else if host.contains("pixiv.net") {
+            // Web/Ajax 走 www.pixiv.net
+            return .web
         } else {
-            return .image
+            // 非 Pixiv 域名不应走直连；此处作为兜底，避免误路由到图片节点。
+            return .api
         }
     }
 

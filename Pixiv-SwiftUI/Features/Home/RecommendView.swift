@@ -81,10 +81,12 @@ struct RecommendView: View {
                     Spacer()
                         .frame(height: 16)
 
-                    RecommendTagGroupList(
-                        tagGroups: searchStore.recommendByTagGroups,
-                        isLoading: searchStore.isLoadingRecommendedTags
-                    )
+                    if accountStore.isWebLoggedIn {
+                        RecommendTagGroupList(
+                            tagGroups: searchStore.recommendByTagGroups,
+                            isLoading: searchStore.isLoadingRecommendedTags
+                        )
+                    }
 
                     Spacer()
                         .frame(height: 8)
@@ -205,7 +207,10 @@ struct RecommendView: View {
                         defer { isInitialLoadInProgress = false }
 
                         if isLoggedIn {
-                            _ = await (loadRecommendedUsersAsync(), refreshIllusts(forceRefresh: false), searchStore.fetchRecommendedTags())
+                            _ = await (loadRecommendedUsersAsync(), refreshIllusts(forceRefresh: false))
+                            if accountStore.isWebLoggedIn {
+                                await searchStore.fetchRecommendedTags()
+                            }
                         } else {
                             await refreshIllusts(forceRefresh: false)
                         }
@@ -213,7 +218,7 @@ struct RecommendView: View {
                 } else {
                     if isLoggedIn {
                         loadRecommendedUsers()
-                        if searchStore.recommendByTagGroups.isEmpty {
+                        if accountStore.isWebLoggedIn, searchStore.recommendByTagGroups.isEmpty {
                             Task {
                                 await searchStore.fetchRecommendedTags()
                             }
@@ -255,7 +260,10 @@ struct RecommendView: View {
                     hasCachedUsers = false
                     isLoadingRecommended = true
                     if accountStore.isLoggedIn {
-                        _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags(forceRefresh: true))
+                        _ = await (refreshIllusts(), refreshRecommendedUsers())
+                        if accountStore.isWebLoggedIn {
+                            await searchStore.fetchRecommendedTags(forceRefresh: true)
+                        }
                     } else {
                         await refreshIllusts()
                     }
@@ -531,7 +539,10 @@ struct RecommendView: View {
 
     private func refreshAll() async {
         if isLoggedIn {
-            _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags(forceRefresh: true))
+            _ = await (refreshIllusts(), refreshRecommendedUsers())
+            if accountStore.isWebLoggedIn {
+                await searchStore.fetchRecommendedTags(forceRefresh: true)
+            }
         } else {
             _ = await refreshIllusts()
         }
