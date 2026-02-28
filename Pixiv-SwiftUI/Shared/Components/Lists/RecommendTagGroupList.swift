@@ -20,7 +20,7 @@ struct RecommendTagGroupList: View {
                 } else if !tagGroups.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
-                            ForEach(tagGroups) { group in
+                            ForEach(tagGroups, id: \.tag) { group in
                                 NavigationLink(value: RecommendByTagTarget(tag: group.tag, translatedName: group.translatedName, illustIds: group.illusts.map { $0.id })) {
                                     RecommendTagGroupCard(group: group)
                                 }

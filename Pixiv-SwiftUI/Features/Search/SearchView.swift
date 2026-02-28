@@ -389,16 +389,21 @@ struct SearchView: View {
                     .bold()
                     .foregroundColor(.white)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 if let translated = TagTranslationService.shared.getDisplayTranslation(for: tag.tag, officialTranslation: tag.translatedName), !translated.isEmpty {
                     Text(translated)
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.8))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
             .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .cornerRadius(16)
+        .contentShape(Rectangle())
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var searchHistoryAndTrends: some View {
@@ -500,6 +505,8 @@ struct SearchView: View {
                                     }) {
                                         trendTagContent(tag)
                                             .frame(width: 140, height: 140)
+                                            .contentShape(Rectangle())
+                                            .clipShape(RoundedRectangle(cornerRadius: 16))
                                     }
                                     .buttonStyle(.plain)
                                 }

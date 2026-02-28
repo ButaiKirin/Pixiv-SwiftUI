@@ -255,7 +255,7 @@ struct RecommendView: View {
                     hasCachedUsers = false
                     isLoadingRecommended = true
                     if accountStore.isLoggedIn {
-                        _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags())
+                        _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags(forceRefresh: true))
                     } else {
                         await refreshIllusts()
                     }
@@ -531,7 +531,7 @@ struct RecommendView: View {
 
     private func refreshAll() async {
         if isLoggedIn {
-            _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags())
+            _ = await (refreshIllusts(), refreshRecommendedUsers(), searchStore.fetchRecommendedTags(forceRefresh: true))
         } else {
             _ = await refreshIllusts()
         }

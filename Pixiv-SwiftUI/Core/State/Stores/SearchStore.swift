@@ -47,6 +47,7 @@ class SearchStore {
     private let suggestionManager = SearchSuggestionManager.shared
 
     private let trendTagsExpiration: CacheExpiration = .hours(1)
+    private let recommendedTagsExpiration: CacheExpiration = .hours(1)
 
     init() {
         loadSearchHistory()
@@ -140,8 +141,20 @@ class SearchStore {
         }
     }
 
-    func fetchRecommendedTags() async {
+    func fetchRecommendedTags(forceRefresh: Bool = false) async {
         guard AccountStore.shared.isLoggedIn else { return }
+
+        let tagsKey = CacheManager.recommendedTagsKey()
+        let groupsKey = CacheManager.recommendByTagGroupsKey()
+
+        if !forceRefresh,
+           let cachedTags: [TrendTag] = cache.get(forKey: tagsKey),
+           let cachedGroups: [RecommendByTagGroup] = cache.get(forKey: groupsKey) {
+            print("[SearchStore] Use cached recommended tags and groups")
+            self.recommendedSearchTags = cachedTags
+            self.recommendByTagGroups = cachedGroups
+            return
+        }
 
         isLoadingRecommendedTags = true
         defer { isLoadingRecommendedTags = false }
@@ -151,15 +164,13 @@ class SearchStore {
 
             // 选取出推荐标签或热门标签
             var displayTags: [SuggestionTag] = []
-            if let tags = response.body.recommendByTags?.illust, !tags.isEmpty {
-                displayTags = tags
-            } else if let tags = response.body.recommendTags?.illust, !tags.isEmpty {
+            if let tags = response.body.recommendTags?.illust, !tags.isEmpty {
                 displayTags = tags
             } else {
                 displayTags = response.body.popularTags.illust
             }
 
-            if displayTags.isEmpty { return }
+            if displayTags.isEmpty && (response.body.recommendByTags?.illust.isEmpty ?? true) { return }
 
             // 构建索引用于快速寻找缩略图
             var thumbnailMap: [String: SuggestionThumbnail] = [:]
@@ -173,8 +184,9 @@ class SearchStore {
             let translations = response.body.tagTranslation ?? [:]
 
             // 构建分组标签对象用于首页的展示 (recommendByTags)
+            var newRecommendByTagGroups: [RecommendByTagGroup] = []
             if let tagGroups = response.body.recommendByTags?.illust {
-                self.recommendByTagGroups = tagGroups.compactMap { tag -> RecommendByTagGroup? in
+                newRecommendByTagGroups = tagGroups.compactMap { tag -> RecommendByTagGroup? in
                     let illusts: [TrendTagIllust] = tag.ids.compactMap { idItem in
                         let idString: String
                         switch idItem {
@@ -200,9 +212,8 @@ class SearchStore {
                     let translatedName = TagTranslationService.shared.getDisplayTranslation(for: tag.tag, officialTranslation: officialTrans)
                     return RecommendByTagGroup(tag: tag.tag, translatedName: translatedName, illusts: illusts)
                 }
-            } else {
-                self.recommendByTagGroups = []
             }
+            self.recommendByTagGroups = newRecommendByTagGroups
 
             self.recommendedSearchTags = displayTags.compactMap { tag -> TrendTag? in
                 // 找到第一个 ID 对应的插画
@@ -236,11 +247,16 @@ class SearchStore {
                     illust: trendIllust
                 )
             }
+
+            // 缓存结果
+            cache.set(self.recommendedSearchTags, forKey: tagsKey, expiration: recommendedTagsExpiration)
+            cache.set(self.recommendByTagGroups, forKey: groupsKey, expiration: recommendedTagsExpiration)
         } catch {
             print("Failed to fetch recommended tags via Ajax, falling back to Trend Tags: \(error)")
             // 如果 Ajax 失败，Fallback 到普通趋势标签
             if let tags = try? await api.getIllustTrendTags() {
                 self.recommendedSearchTags = tags
+                cache.set(tags, forKey: tagsKey, expiration: recommendedTagsExpiration)
             }
         }
     }

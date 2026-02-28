@@ -111,4 +111,12 @@ final class CacheManager {
     static func bookmarksKey(userId: String, restrict: String) -> String {
         "bookmarks_\(userId)_\(restrict)"
     }
+
+    static func recommendedTagsKey() -> String {
+        "recommendedTags"
+    }
+
+    static func recommendByTagGroupsKey() -> String {
+        "recommendByTagGroups"
+    }
 }
