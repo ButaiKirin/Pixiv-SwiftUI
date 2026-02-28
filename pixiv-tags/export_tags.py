@@ -110,8 +110,23 @@ def main():
     logger.info(f"输出文件: {output_path}")
 
     if not os.path.exists(db_path):
-        logger.error(f"数据库文件不存在: {db_path}")
-        return 1
+        logger.warning(f"数据库文件不存在: {db_path}，准备生成空模版...")
+
+        # 如果目标文件也不存在，则生成一个空的模版格式
+        if not os.path.exists(output_path):
+            from datetime import datetime
+
+            timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+            export_data = {"timestamp": timestamp, "tags": {}}
+
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, ensure_ascii=False, separators=(",", ":"))
+            logger.info(f"已生成空模版文件: {output_path}")
+            return 0
+        else:
+            logger.error(f"数据库不存在且目标文件已存在，跳过生成: {output_path}")
+            return 1
 
     try:
         exporter = TagExporter(db_path, output_path)
