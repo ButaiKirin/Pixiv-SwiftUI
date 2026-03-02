@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct UpdateAvailableSheet: View {
     let updateInfo: AppUpdateInfo
@@ -37,7 +42,11 @@ struct UpdateAvailableSheet: View {
 
                 Button("查看更新") {
                     if let url = URL(string: updateInfo.releaseUrl) {
+                        #if os(macOS)
                         NSWorkspace.shared.open(url)
+                        #else
+                        UIApplication.shared.open(url)
+                        #endif
                     }
                     isPresented = false
                 }

@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct AboutSettingsView: View {
     @Environment(UserSettingStore.self) var userSettingStore
@@ -50,7 +55,11 @@ struct AboutSettingsView: View {
             Button("查看") {
                 if let urlString = updateInfo?.releaseUrl,
                    let url = URL(string: urlString) {
+                    #if os(macOS)
                     NSWorkspace.shared.open(url)
+                    #else
+                    UIApplication.shared.open(url)
+                    #endif
                 }
             }
         } message: {
