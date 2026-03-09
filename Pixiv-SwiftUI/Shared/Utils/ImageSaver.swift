@@ -51,9 +51,13 @@ struct ImageSaver {
             throw ImageSaverError.permissionDenied
         }
 
-        try await PHPhotoLibrary.shared().performChanges {
-            let request = PHAssetCreationRequest.forAsset()
-            request.addResource(with: .photo, data: data, options: nil)
+        try await MainActor.run {
+            try PHPhotoLibrary.shared().performChangesAndWait {
+                let request = PHAssetCreationRequest.forAsset()
+                let options = PHAssetResourceCreationOptions()
+                options.shouldMoveFile = false
+                request.addResource(with: .photo, data: data, options: options)
+            }
         }
         Logger.download.debug("保存到相册成功")
         #else
