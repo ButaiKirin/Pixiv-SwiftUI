@@ -29,9 +29,14 @@ enum ImageSaverError: LocalizedError {
 
 struct ImageSaver {
 
-    static func saveToPhotosAlbum(data: Data) async throws {
+    #if os(iOS)
+    private static let photoLibraryQueue = DispatchQueue(label: "com.pixiv.photo-library.save", qos: .userInitiated)
+    #endif
+
+    static func saveToPhotosAlbum(data: Data, fileExtension: String = "jpg") async throws {
         #if os(iOS)
-        Logger.download.debug("开始保存到相册，数据大小: \(data.count) bytes")
+        let normalizedExtension = normalizedPhotoFileExtension(fileExtension)
+        Logger.download.debug("开始保存到相册，数据大小: \(data.count) bytes, 扩展名: \(normalizedExtension, privacy: .public)")
 
         let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
         Logger.download.debug("相册权限状态: \(status.rawValue)")
@@ -51,13 +56,21 @@ struct ImageSaver {
             throw ImageSaverError.permissionDenied
         }
 
-        try await MainActor.run {
-            try PHPhotoLibrary.shared().performChangesAndWait {
-                let request = PHAssetCreationRequest.forAsset()
-                let options = PHAssetResourceCreationOptions()
-                options.shouldMoveFile = false
-                request.addResource(with: .photo, data: data, options: options)
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(normalizedExtension)
+
+        do {
+            try data.write(to: tempURL, options: .atomic)
+            defer {
+                try? FileManager.default.removeItem(at: tempURL)
             }
+
+            try await saveToPhotosAlbum(fileURL: tempURL)
+        } catch let error as ImageSaverError {
+            throw error
+        } catch {
+            throw ImageSaverError.writeFailed(error.localizedDescription)
         }
         Logger.download.debug("保存到相册成功")
         #else
@@ -143,6 +156,41 @@ struct ImageSaver {
             .prefix(200)
             .description
     }
+
+    #if os(iOS)
+    private static func saveToPhotosAlbum(fileURL: URL) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            photoLibraryQueue.async {
+                do {
+                    try autoreleasepool {
+                        try PHPhotoLibrary.shared().performChangesAndWait {
+                            let request = PHAssetCreationRequest.forAsset()
+                            let options = PHAssetResourceCreationOptions()
+                            options.shouldMoveFile = true
+                            request.addResource(with: .photo, fileURL: fileURL, options: options)
+                        }
+                    }
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: ImageSaverError.writeFailed(error.localizedDescription))
+                }
+            }
+        }
+    }
+
+    private static func normalizedPhotoFileExtension(_ fileExtension: String) -> String {
+        let trimmedExtension = fileExtension
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            .lowercased()
+
+        guard !trimmedExtension.isEmpty else {
+            return "jpg"
+        }
+
+        return trimmedExtension == "jpeg" ? "jpg" : trimmedExtension
+    }
+    #endif
 
     static func convert(data: Data, toExtension: String) -> Data {
         let ext = toExtension.lowercased()

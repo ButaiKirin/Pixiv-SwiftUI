@@ -260,7 +260,7 @@ final class DownloadStore {
                 Logger.download.debug("第 \(index + 1) 页下载成功，扩展名: \(actualExt)")
 
                 #if os(iOS)
-                try await ImageSaver.saveToPhotosAlbum(data: imageData)
+                try await ImageSaver.saveToPhotosAlbum(data: imageData, fileExtension: actualExt)
                 Logger.download.debug("第 \(index + 1) 页保存到相册成功")
                 // swiftlint:disable:next force_unwrapping
                 savedPaths.append(URL(string: "photos://\(task.illustId)_\(index)")!)  // iOS 保存到相册，没有文件路径
@@ -459,7 +459,7 @@ final class DownloadStore {
             }
 
             #if os(iOS)
-            try await ImageSaver.saveToPhotosAlbum(data: gifData)
+            try await ImageSaver.saveToPhotosAlbum(data: gifData, fileExtension: "gif")
             Logger.download.debug("GIF保存到相册成功")
             // swiftlint:disable:next force_unwrapping
             let savedURL = URL(string: "photos://\(task.illustId)_ugoira")!

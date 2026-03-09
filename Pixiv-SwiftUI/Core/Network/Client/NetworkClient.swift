@@ -396,6 +396,7 @@ final class NetworkClient {
         let tempURL = destinationURL ?? FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".tmp")
         var downloadedBytes: Int64 = 0
         var requestHeaders = headers
+        requestHeaders["Accept-Encoding"] = "identity"
 
         if FileManager.default.fileExists(atPath: tempURL.path(percentEncoded: false)) {
             if let attributes = try? FileManager.default.attributesOfItem(atPath: tempURL.path(percentEncoded: false)),
@@ -407,40 +408,15 @@ final class NetworkClient {
             }
         }
 
-        let currentDownloadedBytes = downloadedBytes
-        let (data, httpResponse) = try await DirectConnection.shared.request(
+        let httpResponse = try await DirectConnection.shared.download(
             endpoint: endpoint,
             path: fullPath,
-            method: "GET",
             headers: requestHeaders,
+            destinationURL: tempURL,
+            existingBytes: downloadedBytes,
             timeout: 120, // 下载文件使用 120 秒超时
-            onProgress: { received, total in
-                let totalBytes = total.map { $0 + currentDownloadedBytes }
-                onProgress?(received + currentDownloadedBytes, totalBytes)
-            }
+            onProgress: onProgress
         )
-
-        try Task.checkCancellation()
-
-        let isPartial = httpResponse.statusCode == 206
-
-        if isPartial && downloadedBytes > 0 {
-            if let fileHandle = try? FileHandle(forWritingTo: tempURL) {
-                defer { try? fileHandle.close() }
-                try fileHandle.seekToEnd()
-                try fileHandle.write(contentsOf: data)
-            } else {
-                try data.write(to: tempURL)
-            }
-        } else {
-            try data.write(to: tempURL)
-            downloadedBytes = 0
-        }
-
-        try Task.checkCancellation()
-
-        let totalBytes = httpResponse.expectedContentLength > 0 ? httpResponse.expectedContentLength + downloadedBytes : nil
-        onProgress?(Int64(data.count) + downloadedBytes, totalBytes)
 
         return (tempURL, httpResponse)
     }

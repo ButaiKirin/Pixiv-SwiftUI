@@ -142,6 +142,78 @@ final class DirectConnection: Sendable {
         throw lastError ?? DirectConnectionError.allIPsFailed
     }
 
+    func download(
+        endpoint: PixivEndpoint,
+        path: String,
+        headers: [String: String] = [:],
+        destinationURL: URL,
+        existingBytes: Int64 = 0,
+        timeout: TimeInterval? = nil,
+        onProgress: (@Sendable (Int64, Int64?) -> Void)? = nil
+    ) async throws -> HTTPURLResponse {
+        await limiter.wait()
+        defer {
+            Task {
+                await limiter.signal()
+            }
+        }
+
+        try Task.checkCancellation()
+
+        let host = endpoint.host
+        let rawIPs = await endpoint.getIPList()
+        let ips = await health.rankIPs(rawIPs)
+        let requestTimeout = timeout ?? defaultTimeout
+        print("[DirectConnection] 开始下载: \(host)\(path)")
+
+        var lastError: Error?
+        for ip in ips {
+            try Task.checkCancellation()
+            do {
+                print("[DirectConnection] 正在尝试下载 IP: \(ip)")
+                let response = try await performDownload(
+                    ip: ip,
+                    port: endpoint.port,
+                    host: host,
+                    path: path,
+                    headers: headers,
+                    destinationURL: destinationURL,
+                    existingBytes: existingBytes,
+                    timeout: requestTimeout,
+                    onProgress: onProgress
+                )
+                await health.reportSuccess(ip: ip)
+                print("[DirectConnection] IP \(ip) 下载成功")
+                return response
+            } catch {
+                if error is CancellationError || (error as? DirectConnectionError) == .cancelled {
+                    throw error
+                }
+
+                print("[DirectConnection] IP \(ip) 下载失败，错误: \(error.localizedDescription)")
+                await health.reportFailure(ip: ip)
+                lastError = error
+
+                if let dcError = error as? DirectConnectionError {
+                    print("[DirectConnection] DirectConnectionError: \(dcError)")
+                }
+
+                if let nwError = error as? NWError {
+                    print("[DirectConnection] NWError Details: \(nwError)")
+                }
+                continue
+            }
+        }
+
+        if endpoint == .image {
+            Task {
+                await IpCacheManager.shared.refreshAll()
+            }
+        }
+
+        throw lastError ?? DirectConnectionError.allIPsFailed
+    }
+
     private func performRequest(
         ip: String,
         port: Int,
@@ -184,12 +256,13 @@ final class DirectConnection: Sendable {
         let parameters = NWParameters(tls: tlsOptions)
         let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(ip), port: NWEndpoint.Port(integerLiteral: UInt16(port)))
         let connection = NWConnection(to: endpoint, using: parameters)
+        let connectionQueue = DispatchQueue(label: "com.pixiv.direct.request.\(ip)", qos: .default)
 
         let responseBuffer = ResponseBuffer()
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                let timeoutTimer = DispatchSource.makeTimerSource(queue: .global())
+            let timeoutTimer = DispatchSource.makeTimerSource(queue: connectionQueue)
                 timeoutTimer.schedule(deadline: .now() + timeout)
 
                 let isFinished = AtomicBool(false)
@@ -275,13 +348,9 @@ final class DirectConnection: Sendable {
                 @Sendable func receiveNext() {
                     connection.receive(minimumIncompleteLength: 1, maximumLength: 1024 * 512) { data, _, isComplete, error in
                         if let data = data, !data.isEmpty {
-                            Task {
-                                await responseBuffer.append(data)
-                                let progress = await responseBuffer.progress
-                                await MainActor.run {
-                                    onProgress?(progress.received, progress.total)
-                                }
-                            }
+                            responseBuffer.append(data)
+                            let progress = responseBuffer.progress
+                            onProgress?(progress.received, progress.total)
                         }
 
                         if let error = error {
@@ -291,20 +360,17 @@ final class DirectConnection: Sendable {
                         }
 
                         if isComplete {
-                            Task {
-                                if isFinished.isTrue { return }
-                                // 在 isComplete 时，我们要确保之前的 append Task 已经完成。
-                                let fullData = await responseBuffer.data
-                                if !fullData.isEmpty {
-                                    do {
-                                        let (body, response) = try self.parseHTTPResponse(data: fullData, host: host)
-                                        finish(with: .success((body, response)))
-                                    } catch {
-                                        finish(with: .failure(error))
-                                    }
-                                } else {
-                                    finish(with: .failure(DirectConnectionError.emptyResponse))
+                            if isFinished.isTrue { return }
+                            let fullData = responseBuffer.data
+                            if !fullData.isEmpty {
+                                do {
+                                    let (body, response) = try self.parseHTTPResponse(data: fullData, host: host)
+                                    finish(with: .success((body, response)))
+                                } catch {
+                                    finish(with: .failure(error))
                                 }
+                            } else {
+                                finish(with: .failure(DirectConnectionError.emptyResponse))
                             }
                             return
                         }
@@ -316,24 +382,183 @@ final class DirectConnection: Sendable {
                 }
 
                 receiveNext()
-                connection.start(queue: .global())
+                connection.start(queue: connectionQueue)
             }
         } onCancel: {
-            connection.cancel()
+            connectionQueue.async {
+                connection.cancel()
+            }
         }
     }
 
-    nonisolated func parseHTTPResponse(data: Data, host: String) throws -> (body: Data, response: HTTPURLResponse) {
-        let separator = Data("\r\n\r\n".utf8)
+    private func performDownload(
+        ip: String,
+        port: Int,
+        host: String,
+        path: String,
+        headers: [String: String],
+        destinationURL: URL,
+        existingBytes: Int64,
+        timeout: TimeInterval,
+        onProgress: (@Sendable (Int64, Int64?) -> Void)? = nil
+    ) async throws -> HTTPURLResponse {
+        let tlsOptions = NWProtocolTLS.Options()
 
-        guard let range = data.range(of: separator) else {
-            throw DirectConnectionError.emptyResponse
+        sec_protocol_options_add_tls_application_protocol(tlsOptions.securityProtocolOptions, "http/1.1")
+
+        sec_protocol_options_set_verify_block(tlsOptions.securityProtocolOptions, { @Sendable (_, trustRef, completionHandler) in
+            let trust = sec_trust_copy_ref(trustRef).takeRetainedValue()
+            var foundMatch = false
+
+            if let certificates = SecTrustCopyCertificateChain(trust) as? [SecCertificate] {
+                for cert in certificates {
+                    if let summary = SecCertificateCopySubjectSummary(cert) as String? {
+                        let lowerSummary = summary.lowercased()
+                        if lowerSummary.contains("pixiv.net") || lowerSummary.contains("pximg.net") {
+                            foundMatch = true
+                            break
+                        }
+                    }
+                }
+            }
+
+            completionHandler(foundMatch)
+        }, .global())
+
+        let parameters = NWParameters(tls: tlsOptions)
+        let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(ip), port: NWEndpoint.Port(integerLiteral: UInt16(port)))
+        let connection = NWConnection(to: endpoint, using: parameters)
+        let connectionQueue = DispatchQueue(label: "com.pixiv.direct.download.\(ip)", qos: .default)
+        let streamHandler = try DirectDownloadStreamHandler(
+            destinationURL: destinationURL,
+            host: host,
+            existingBytes: existingBytes,
+            onProgress: onProgress
+        )
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let timeoutTimer = DispatchSource.makeTimerSource(queue: connectionQueue)
+                timeoutTimer.schedule(deadline: .now() + timeout)
+
+                let isFinished = AtomicBool(false)
+                let finishLock = NSLock()
+
+                @Sendable func finish(with result: Result<HTTPURLResponse, Error>) {
+                    if isFinished.compareAndSwap(expected: false, desired: true) {
+                        finishLock.lock()
+                        timeoutTimer.cancel()
+                        streamHandler.close()
+                        connection.stateUpdateHandler = nil
+                        connection.cancel()
+                        continuation.resume(with: result)
+                        finishLock.unlock()
+                    }
+                }
+
+                timeoutTimer.setEventHandler {
+                    print("[DirectConnection] \(ip) 下载超时")
+                    finish(with: .failure(DirectConnectionError.timeout))
+                }
+                timeoutTimer.resume()
+
+                @Sendable func sendRequest() {
+                    var request = "GET \(path) HTTP/1.1\r\n"
+                    request += "Host: \(host)\r\n"
+
+                    var allHeaders = headers
+                    if allHeaders["User-Agent"] == nil {
+                        allHeaders["User-Agent"] = "PixivIOSApp/7.13.3 (iOS 14.6; iPhone12,1)"
+                    }
+
+                    if allHeaders["Accept-Encoding"] == nil {
+                        allHeaders["Accept-Encoding"] = "identity"
+                    }
+
+                    allHeaders["Connection"] = "close"
+
+                    if allHeaders["Referer"] == nil && (host.contains("pixiv") || host.contains("pximg")) {
+                        allHeaders["Referer"] = "https://www.pixiv.net/"
+                    }
+
+                    request += "Content-Length: 0\r\n"
+
+                    let excludedHeaders = ["Host", "Content-Length", "Connection"]
+                    for (key, value) in allHeaders where !excludedHeaders.contains(key) {
+                        request += "\(key): \(value)\r\n"
+                    }
+                    request += "Connection: close\r\n\r\n"
+
+                    let requestData = Data(request.utf8)
+                    connection.send(content: requestData, completion: .contentProcessed { sendError in
+                        if let error = sendError {
+                            print("[DirectConnection] \(ip) 下载请求发送失败: \(error)")
+                            finish(with: .failure(error))
+                        }
+                    })
+                }
+
+                connection.stateUpdateHandler = { state in
+                    switch state {
+                    case .ready:
+                        sendRequest()
+                    case .failed(let error):
+                        finish(with: .failure(error))
+                    case .cancelled:
+                        if !isFinished.isTrue {
+                            finish(with: .failure(DirectConnectionError.cancelled))
+                        }
+                    default:
+                        break
+                    }
+                }
+
+                @Sendable func receiveNext() {
+                    connection.receive(minimumIncompleteLength: 1, maximumLength: 1024 * 512) { data, _, isComplete, error in
+                        if let data = data, !data.isEmpty {
+                            do {
+                                try streamHandler.append(data)
+                            } catch {
+                                finish(with: .failure(error))
+                                return
+                            }
+                        }
+
+                        if let error = error {
+                            print("[DirectConnection] \(ip) 下载接收错误: \(error)")
+                            finish(with: .failure(error))
+                            return
+                        }
+
+                        if isComplete {
+                            do {
+                                let response = try streamHandler.complete()
+                                finish(with: .success(response))
+                            } catch {
+                                finish(with: .failure(error))
+                            }
+                            return
+                        }
+
+                        if !isFinished.isTrue {
+                            receiveNext()
+                        }
+                    }
+                }
+
+                receiveNext()
+                connection.start(queue: connectionQueue)
+            }
+        } onCancel: {
+            connectionQueue.async {
+                streamHandler.close()
+                connection.cancel()
+            }
         }
+    }
 
-        let headerData = data.subdata(in: 0..<range.lowerBound)
-        var bodyData = data.subdata(in: range.upperBound..<data.count)
-
-        let headerString = String(data: headerData, encoding: .utf8) ?? ""
+    nonisolated private func parseHTTPHeader(data: Data, host: String) throws -> (response: HTTPURLResponse, headers: [String: String]) {
+        let headerString = String(data: data, encoding: .utf8) ?? ""
         let lines = headerString.components(separatedBy: .newlines)
 
         var statusCode = 200
@@ -362,6 +587,22 @@ final class DirectConnection: Sendable {
             httpVersion: "HTTP/1.1",
             headerFields: headers
         ) ?? HTTPURLResponse()
+
+        return (response, headers)
+    }
+
+    nonisolated func parseHTTPResponse(data: Data, host: String) throws -> (body: Data, response: HTTPURLResponse) {
+        let separator = Data("\r\n\r\n".utf8)
+
+        guard let range = data.range(of: separator) else {
+            throw DirectConnectionError.emptyResponse
+        }
+
+        let headerData = data.subdata(in: 0..<range.lowerBound)
+        var bodyData = data.subdata(in: range.upperBound..<data.count)
+        let parsedHeader = try parseHTTPHeader(data: headerData, host: host)
+        let response = parsedHeader.response
+        let headers = parsedHeader.headers
 
         // 校验 Content-Length
         if let contentLengthStr = headers["content-length"], let expectedSize = Int(contentLengthStr) {
@@ -438,12 +679,234 @@ final class DirectConnection: Sendable {
 }
 
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-actor ResponseBuffer {
-    private var storage = Data()
-    private var headerLength: Int?
-    private var expectedContentLength: Int64?
+private final class DirectDownloadStreamHandler: @unchecked Sendable {
+    private let host: String
+    private let initialBytes: Int64
+    private let onProgress: (@Sendable (Int64, Int64?) -> Void)?
+    private let lock = NSLock()
+    private let fileHandle: FileHandle
+    private let chunkedDecoder = HTTPChunkedStreamDecoder()
 
-    func append(_ newData: Data) {
+    nonisolated(unsafe) private var headerBuffer = Data()
+    nonisolated(unsafe) private var response: HTTPURLResponse?
+    nonisolated(unsafe) private var responseHeaders: [String: String] = [:]
+    nonisolated(unsafe) private var receivedBodyBytes: Int64 = 0
+    nonisolated(unsafe) private var totalBytes: Int64?
+    nonisolated(unsafe) private var effectiveExistingBytes: Int64
+    nonisolated(unsafe) private var isChunked = false
+
+    init(
+        destinationURL: URL,
+        host: String,
+        existingBytes: Int64,
+        onProgress: (@Sendable (Int64, Int64?) -> Void)?
+    ) throws {
+        self.host = host
+        self.initialBytes = existingBytes
+        self.effectiveExistingBytes = existingBytes
+        self.onProgress = onProgress
+
+        if !FileManager.default.fileExists(atPath: destinationURL.path(percentEncoded: false)) {
+            FileManager.default.createFile(atPath: destinationURL.path(percentEncoded: false), contents: nil)
+        }
+
+        self.fileHandle = try FileHandle(forWritingTo: destinationURL)
+    }
+
+    nonisolated func append(_ data: Data) throws {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if response == nil {
+            headerBuffer.append(data)
+            let separator = Data("\r\n\r\n".utf8)
+            guard let range = headerBuffer.range(of: separator) else {
+                return
+            }
+
+            let headerData = headerBuffer.subdata(in: 0..<range.lowerBound)
+            let parsedHeader = try Self.parseHTTPHeader(data: headerData, host: host)
+            response = parsedHeader.response
+            responseHeaders = parsedHeader.headers
+            isChunked = responseHeaders["transfer-encoding"]?.lowercased().contains("chunked") == true
+
+            if responseHeaders["content-encoding"]?.lowercased() == "gzip" {
+                throw DirectConnectionError.gzipError
+            }
+
+            if response?.statusCode == 206 && initialBytes > 0 {
+                try fileHandle.seekToEnd()
+            } else {
+                try fileHandle.truncate(atOffset: 0)
+                effectiveExistingBytes = 0
+            }
+
+            if let contentLength = responseHeaders["content-length"].flatMap(Int64.init) {
+                totalBytes = contentLength + effectiveExistingBytes
+            }
+
+            onProgress?(effectiveExistingBytes, totalBytes)
+
+            let bodyStart = range.upperBound
+            let bodyData = headerBuffer.subdata(in: bodyStart..<headerBuffer.count)
+            headerBuffer.removeAll(keepingCapacity: false)
+            try processBody(bodyData)
+            return
+        }
+
+        try processBody(data)
+    }
+
+    nonisolated func complete() throws -> HTTPURLResponse {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let response else {
+            throw DirectConnectionError.emptyResponse
+        }
+
+        if isChunked {
+            try chunkedDecoder.finalize()
+        } else if let expectedSize = responseHeaders["content-length"].flatMap(Int.init), receivedBodyBytes < Int64(expectedSize) {
+            throw DirectConnectionError.incompleteData(expected: expectedSize, received: Int(receivedBodyBytes))
+        }
+
+        return response
+    }
+
+    nonisolated func close() {
+        lock.lock()
+        defer { lock.unlock() }
+        try? fileHandle.close()
+    }
+
+    nonisolated private func processBody(_ data: Data) throws {
+        guard !data.isEmpty else { return }
+
+        if isChunked {
+            let chunks = try chunkedDecoder.append(data)
+            for chunk in chunks {
+                try write(chunk)
+            }
+        } else {
+            try write(data)
+        }
+    }
+
+    nonisolated private func write(_ data: Data) throws {
+        guard !data.isEmpty else { return }
+        try fileHandle.write(contentsOf: data)
+        receivedBodyBytes += Int64(data.count)
+        onProgress?(effectiveExistingBytes + receivedBodyBytes, totalBytes)
+    }
+
+    nonisolated private static func parseHTTPHeader(data: Data, host: String) throws -> (response: HTTPURLResponse, headers: [String: String]) {
+        let headerString = String(data: data, encoding: .utf8) ?? ""
+        let lines = headerString.components(separatedBy: .newlines)
+
+        var statusCode = 200
+        var headers: [String: String] = [:]
+
+        for (index, line) in lines.enumerated() {
+            if index == 0 {
+                let parts = line.split(separator: " ", maxSplits: 2)
+                if parts.count >= 2 {
+                    statusCode = Int(parts[1]) ?? 200
+                }
+            } else {
+                let parts = line.split(separator: ":", maxSplits: 1)
+                if parts.count == 2 {
+                    let key = parts[0].trimmingCharacters(in: .whitespaces).lowercased()
+                    let value = parts[1].trimmingCharacters(in: .whitespaces)
+                    headers[key] = value
+                }
+            }
+        }
+
+        let response = HTTPURLResponse(
+            // swiftlint:disable:next force_unwrapping
+            url: URL(string: "https://\(host)")!,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: headers
+        ) ?? HTTPURLResponse()
+
+        return (response, headers)
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
+private final class HTTPChunkedStreamDecoder: @unchecked Sendable {
+    nonisolated(unsafe) private var buffer = Data()
+    nonisolated(unsafe) private var sawEndMarker = false
+
+    nonisolated func append(_ data: Data) throws -> [Data] {
+        guard !sawEndMarker else { return [] }
+
+        buffer.append(data)
+        var decodedChunks: [Data] = []
+
+        while true {
+            var lineEnd = 0
+            while lineEnd < buffer.count - 1 && !(buffer[lineEnd] == 0x0D && buffer[lineEnd + 1] == 0x0A) {
+                lineEnd += 1
+            }
+
+            if buffer.count < 2 || lineEnd >= buffer.count - 1 {
+                break
+            }
+
+            let sizeData = buffer.subdata(in: 0..<lineEnd)
+            guard let sizeString = String(data: sizeData, encoding: .utf8) else {
+                throw DirectConnectionError.chunkedDecodeError
+            }
+
+            let cleanSizeString = sizeString.trimmingCharacters(in: .whitespaces).split(separator: ";")[0]
+            guard let chunkSize = Int(cleanSizeString, radix: 16) else {
+                throw DirectConnectionError.chunkedDecodeError
+            }
+
+            let chunkStart = lineEnd + 2
+
+            if chunkSize == 0 {
+                if buffer.count < chunkStart + 2 {
+                    break
+                }
+                sawEndMarker = true
+                buffer.removeAll(keepingCapacity: false)
+                break
+            }
+
+            let chunkEnd = chunkStart + chunkSize
+            if buffer.count < chunkEnd + 2 {
+                break
+            }
+
+            decodedChunks.append(buffer.subdata(in: chunkStart..<chunkEnd))
+            buffer.removeSubrange(0..<(chunkEnd + 2))
+        }
+
+        return decodedChunks
+    }
+
+    nonisolated func finalize() throws {
+        guard sawEndMarker else {
+            throw DirectConnectionError.chunkedDecodeError
+        }
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
+private final class ResponseBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var storage = Data()
+    nonisolated(unsafe) private var headerLength: Int?
+    nonisolated(unsafe) private var expectedContentLength: Int64?
+
+    nonisolated func append(_ newData: Data) {
+        lock.lock()
+        defer { lock.unlock() }
+
         storage.append(newData)
 
         if headerLength == nil {
@@ -470,9 +933,15 @@ actor ResponseBuffer {
         }
     }
 
-    var data: Data { storage }
+    nonisolated var data: Data {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
 
-    var progress: (received: Int64, total: Int64?) {
+    nonisolated var progress: (received: Int64, total: Int64?) {
+        lock.lock()
+        defer { lock.unlock() }
         let received = Int64(storage.count - (headerLength ?? 0))
         return (max(0, received), expectedContentLength)
     }
