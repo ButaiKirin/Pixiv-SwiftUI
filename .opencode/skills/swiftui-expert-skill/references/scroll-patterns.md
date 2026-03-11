@@ -1,5 +1,13 @@
 # SwiftUI ScrollView Patterns Reference
 
+## Table of Contents
+
+- [ScrollViewReader for Programmatic Scrolling](#scrollviewreader-for-programmatic-scrolling)
+- [Scroll Position Tracking](#scroll-position-tracking)
+- [Scroll Transitions and Effects](#scroll-transitions-and-effects)
+- [Scroll Target Behavior](#scroll-target-behavior)
+- [Summary Checklist](#summary-checklist)
+
 ## ScrollViewReader for Programmatic Scrolling
 
 **Use `ScrollViewReader` for scroll-to-top, scroll-to-bottom, and anchor-based jumps.**
