@@ -9,6 +9,7 @@ enum ProfileDestination: Hashable {
     case downloadTasks
     case blockSettings
     case translationSettings
+    case syncSettings
     case downloadSettings
     case dataExport
     case about

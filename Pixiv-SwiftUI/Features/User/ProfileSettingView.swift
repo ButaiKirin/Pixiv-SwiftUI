@@ -188,6 +188,10 @@ struct ProfileSettingView: View {
                 Text("翻译")
             }
 
+            NavigationLink(value: ProfileDestination.syncSettings) {
+                Text("同步")
+            }
+
             NavigationLink(value: ProfileDestination.downloadSettings) {
                 Text("下载")
             }

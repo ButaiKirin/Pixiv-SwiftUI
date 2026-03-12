@@ -36,6 +36,10 @@ struct SettingsContainerView: View {
                         Label(String(localized: "翻译"), systemImage: "character.bubble")
                     }
 
+                    NavigationLink(value: SettingsDestination.sync) {
+                        Label(String(localized: "同步"), systemImage: "arrow.triangle.2.circlepath")
+                    }
+
                     NavigationLink(value: SettingsDestination.bookmark) {
                         Label(String(localized: "收藏"), systemImage: "bookmark")
                     }
@@ -84,6 +88,8 @@ struct SettingsDetailView: View {
             BlockSettingView()
         case .translation:
             TranslationSettingView()
+        case .sync:
+            WebDAVSyncSettingsView()
         case .bookmark:
             BookmarkSettingView()
         case .download:
@@ -102,6 +108,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable, Hashable {
     case privacy
     case block
     case translation
+    case sync
     case bookmark
     case download
     case network
@@ -116,6 +123,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable, Hashable {
         case .privacy: return String(localized: "过滤")
         case .block: return String(localized: "屏蔽")
         case .translation: return String(localized: "翻译")
+        case .sync: return String(localized: "同步")
         case .bookmark: return String(localized: "收藏")
         case .download: return String(localized: "下载")
         case .network: return String(localized: "网络")

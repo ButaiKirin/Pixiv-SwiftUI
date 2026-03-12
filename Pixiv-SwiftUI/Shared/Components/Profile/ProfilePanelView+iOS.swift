@@ -297,6 +297,8 @@ struct ProfilePanelView: View {
                     BlockSettingView()
                 case .translationSettings:
                     TranslationSettingView()
+                case .syncSettings:
+                    WebDAVSyncSettingsView()
                 case .downloadSettings:
                     DownloadSettingView()
                 case .dataExport:
