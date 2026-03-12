@@ -246,7 +246,13 @@ final class DownloadStore {
             }
 
             do {
-                var imageData = try await ImageSaver.downloadImage(from: urlString)
+                var imageData: Data
+                if let cachedData = await ImageSaver.getCachedImageData(for: urlString) {
+                    Logger.download.debug("发现缓存图片，跳过网络下载")
+                    imageData = cachedData
+                } else {
+                    imageData = try await ImageSaver.downloadImage(from: urlString)
+                }
 
                 // 注入元数据
                 if UserSettingStore.shared.userSetting.saveMetadata {

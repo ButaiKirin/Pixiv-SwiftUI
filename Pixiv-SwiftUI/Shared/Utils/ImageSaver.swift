@@ -1,5 +1,6 @@
 import Foundation
 import os.log
+import Kingfisher
 #if os(iOS)
 import UIKit
 import Photos
@@ -107,6 +108,43 @@ struct ImageSaver {
         #else
         throw ImageSaverError.writeFailed("ZIP 创建仅在 macOS 支持")
         #endif
+    }
+
+    static func getCachedImageData(for urlString: String) async -> Data? {
+        let cacheKey = urlString
+        
+        // 1. 尝试从磁盘读取原始数据
+        // Kingfisher 的 isCached(forKey:) 是同步的
+        if ImageCache.default.isCached(forKey: cacheKey) {
+            return await withCheckedContinuation { (continuation: CheckedContinuation<Data?, Never>) in
+                // 使用 retrieveImage 从磁盘获取
+                ImageCache.default.retrieveImage(forKey: cacheKey, options: [.onlyFromCache]) { result in
+                    switch result {
+                    case .success(let cacheResult):
+                        // 尝试从磁盘缓存路径直接读取二进制数据
+                        let diskCachePath = ImageCache.default.cachePath(forKey: cacheKey)
+                        if let data = try? Data(contentsOf: URL(fileURLWithPath: diskCachePath)) {
+                            continuation.resume(returning: data)
+                        } else {
+                            // 如果直接读取失败，返回解压缩后的图片 data
+                            if let image = cacheResult.image {
+                                #if os(iOS)
+                                continuation.resume(returning: image.pngData())
+                                #else
+                                continuation.resume(returning: image.tiffRepresentation)
+                                #endif
+                            } else {
+                                continuation.resume(returning: nil)
+                            }
+                        }
+                    case .failure:
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        }
+        
+        return nil
     }
 
     static func downloadImage(from urlString: String) async throws -> Data {
