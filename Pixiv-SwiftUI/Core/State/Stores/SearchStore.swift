@@ -29,6 +29,11 @@ class SearchStore {
     private let trendTagsExpiration: CacheExpiration = .hours(1)
     private let recommendedTagsExpiration: CacheExpiration = .hours(1)
 
+    private var historyKey: String {
+        let userId = AccountStore.shared.currentUserId
+        return "SearchHistoryTags_\(userId)"
+    }
+
     init() {
         loadSearchHistory()
 
@@ -50,15 +55,17 @@ class SearchStore {
     }
 
     func loadSearchHistory() {
-        if let data = UserDefaults.standard.data(forKey: "SearchHistoryTags"),
+        if let data = UserDefaults.standard.data(forKey: historyKey),
            let history = try? JSONDecoder().decode([SearchTag].self, from: data) {
             self.searchHistory = history
+        } else {
+            self.searchHistory = []
         }
     }
 
     func saveSearchHistory() {
         if let data = try? JSONEncoder().encode(searchHistory) {
-            UserDefaults.standard.set(data, forKey: "SearchHistoryTags")
+            UserDefaults.standard.set(data, forKey: historyKey)
         }
     }
 

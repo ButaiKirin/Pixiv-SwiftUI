@@ -327,6 +327,7 @@ final class AccountStore {
         IllustStore.shared.clearMemoryCache()
         NovelStore.shared.clearMemoryCache()
         SearchStore.shared.clearMemoryCache()
+        SearchStore.shared.loadSearchHistory()
 
         // 3. 重新加载当前账号的数据
         await UserSettingStore.shared.loadUserSettingAsync()
