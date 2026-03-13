@@ -56,6 +56,8 @@ struct SearchResultView: View {
             word: word,
             sort: sortOption.rawValue,
             preferLocalPopularSort: sortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
+            prefetchNovelSort: novelSortOption.rawValue,
+            prefetchNovelPreferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
