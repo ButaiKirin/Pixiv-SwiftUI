@@ -108,6 +108,7 @@ final class SearchAPI {
         word: String,
         searchTarget: String = "partial_match_for_tags",
         sort: String = "date_desc",
+        searchAIType: Int? = nil,
         startDate: Date? = nil,
         endDate: Date? = nil,
         offset: Int = 0,
@@ -121,6 +122,10 @@ final class SearchAPI {
             URLQueryItem(name: "offset", value: String(offset)),
             URLQueryItem(name: "limit", value: String(limit)),
         ]
+
+        if let searchAIType {
+            queryItems.append(URLQueryItem(name: "search_ai_type", value: String(searchAIType)))
+        }
 
         if let formattedStartDate = formatDate(startDate) {
             queryItems.append(URLQueryItem(name: "start_date", value: formattedStartDate))
@@ -186,6 +191,7 @@ final class SearchAPI {
         word: String,
         searchTarget: String = "partial_match_for_tags",
         sort: String = "date_desc",
+        searchAIType: Int? = nil,
         startDate: Date? = nil,
         endDate: Date? = nil,
         offset: Int = 0,
@@ -201,6 +207,10 @@ final class SearchAPI {
             URLQueryItem(name: "offset", value: String(offset)),
             URLQueryItem(name: "limit", value: String(limit)),
         ]
+
+        if let searchAIType {
+            queryItems.append(URLQueryItem(name: "search_ai_type", value: String(searchAIType)))
+        }
 
         if let formattedStartDate = formatDate(startDate) {
             queryItems.append(URLQueryItem(name: "start_date", value: formattedStartDate))

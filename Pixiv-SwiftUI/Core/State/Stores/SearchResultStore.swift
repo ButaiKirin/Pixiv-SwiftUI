@@ -24,6 +24,7 @@ final class SearchResultStore {
         let word: String
         let sort: String
         let preferLocalPopularSort: Bool
+        let showsAIGenerated: Bool
         let bookmarkFilter: BookmarkFilterOption
         let searchTarget: SearchTargetOption
         let startDate: String?
@@ -34,6 +35,7 @@ final class SearchResultStore {
         let word: String
         let sort: String
         let preferLocalPopularSort: Bool
+        let showsAIGenerated: Bool
         let bookmarkFilter: BookmarkFilterOption
         let searchTarget: SearchTargetOption
         let startDate: Date?
@@ -47,6 +49,7 @@ final class SearchResultStore {
 
     private struct PseudoPopularSessionKey: Equatable {
         let word: String
+        let showsAIGenerated: Bool
         let bookmarkFilter: BookmarkFilterOption
         let searchTarget: SearchTargetOption
         let minimumBookmarkCount: Int
@@ -136,6 +139,7 @@ final class SearchResultStore {
         preferLocalPopularSort: Bool = false,
         prefetchNovelSort: String = SearchSortOption.dateDesc.rawValue,
         prefetchNovelPreferLocalPopularSort: Bool = false,
+        showsAIGenerated: Bool = true,
         bookmarkFilter: BookmarkFilterOption = .none,
         searchTarget: SearchTargetOption = .partialMatchForTags,
         startDate: Date? = nil,
@@ -179,6 +183,7 @@ final class SearchResultStore {
             word: word,
             sort: prefetchNovelSort,
             preferLocalPopularSort: prefetchNovelPreferLocalPopularSort,
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -191,6 +196,7 @@ final class SearchResultStore {
             if usesUsersTagPseudoPopularSort {
                 let illustBatch = try await searchIllustsByPseudoPopularTags(
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -207,6 +213,7 @@ final class SearchResultStore {
             } else if usesPseudoPopularSort {
                 let illustBatch = try await searchIllustsByBookmarkCount(
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     searchTarget: searchTarget,
                     startDate: startDate,
                     endDate: endDate,
@@ -224,6 +231,7 @@ final class SearchResultStore {
                     word: finalWord,
                     searchTarget: searchTarget.rawValue,
                     sort: sort,
+                    searchAIType: searchAITypeParameter(for: showsAIGenerated),
                     startDate: startDate,
                     endDate: endDate,
                     offset: 0,
@@ -242,6 +250,7 @@ final class SearchResultStore {
                 scheduleIllustPseudoPopularEnrichment(
                     sessionID: illustSessionID,
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -254,6 +263,7 @@ final class SearchResultStore {
                         word: word,
                         sort: prefetchNovelSort,
                         preferLocalPopularSort: prefetchNovelPreferLocalPopularSort,
+                        showsAIGenerated: showsAIGenerated,
                         bookmarkFilter: bookmarkFilter,
                         searchTarget: searchTarget,
                         startDate: startDate,
@@ -265,13 +275,14 @@ final class SearchResultStore {
             }
 
             let fetchedNovels = try await fetchNovelResults(
-                context: SearchExecutionContext(
-                    word: word,
-                    sort: prefetchNovelSort,
-                    preferLocalPopularSort: prefetchNovelPreferLocalPopularSort,
-                    bookmarkFilter: bookmarkFilter,
-                    searchTarget: searchTarget,
-                    startDate: startDate,
+                    context: SearchExecutionContext(
+                        word: word,
+                        sort: prefetchNovelSort,
+                        preferLocalPopularSort: prefetchNovelPreferLocalPopularSort,
+                        showsAIGenerated: showsAIGenerated,
+                        bookmarkFilter: bookmarkFilter,
+                        searchTarget: searchTarget,
+                        startDate: startDate,
                     endDate: endDate
                 ),
                 targetCount: novelLimit,
@@ -298,6 +309,7 @@ final class SearchResultStore {
         word: String,
         sort: String = "date_desc",
         preferLocalPopularSort: Bool = false,
+        showsAIGenerated: Bool = true,
         bookmarkFilter: BookmarkFilterOption = .none,
         searchTarget: SearchTargetOption = .partialMatchForTags,
         startDate: Date? = nil,
@@ -323,6 +335,7 @@ final class SearchResultStore {
                 )
                 let batch = try await searchIllustsByPseudoPopularTags(
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -339,6 +352,7 @@ final class SearchResultStore {
                 scheduleIllustPseudoPopularEnrichment(
                     sessionID: illustPseudoPopularSessionID,
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -353,6 +367,7 @@ final class SearchResultStore {
                 )
                 let batch = try await searchIllustsByBookmarkCount(
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     searchTarget: searchTarget,
                     startDate: startDate,
                     endDate: endDate,
@@ -368,6 +383,7 @@ final class SearchResultStore {
                 scheduleIllustPseudoPopularEnrichment(
                     sessionID: illustPseudoPopularSessionID,
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -379,6 +395,7 @@ final class SearchResultStore {
                     word: finalWord,
                     searchTarget: searchTarget.rawValue,
                     sort: sort,
+                    searchAIType: searchAITypeParameter(for: showsAIGenerated),
                     startDate: startDate,
                     endDate: endDate,
                     offset: self.illustOffset,
@@ -414,6 +431,7 @@ final class SearchResultStore {
         word: String,
         sort: String = "date_desc",
         preferLocalPopularSort: Bool = false,
+        showsAIGenerated: Bool = true,
         bookmarkFilter: BookmarkFilterOption = .none,
         searchTarget: SearchTargetOption = .partialMatchForTags,
         startDate: Date? = nil,
@@ -423,6 +441,7 @@ final class SearchResultStore {
             word: word,
             sort: sort,
             preferLocalPopularSort: preferLocalPopularSort,
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -434,6 +453,7 @@ final class SearchResultStore {
                 scheduleNovelPseudoPopularEnrichment(
                     sessionID: novelPseudoPopularSessionID,
                     word: normalizeSearchWord(word),
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: effectivePseudoPopularMinimumBookmarkCount(
@@ -462,6 +482,7 @@ final class SearchResultStore {
                     word: word,
                     sort: sort,
                     preferLocalPopularSort: preferLocalPopularSort,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     startDate: startDate,
@@ -477,6 +498,7 @@ final class SearchResultStore {
                 scheduleNovelPseudoPopularEnrichment(
                     sessionID: novelPseudoPopularSessionID,
                     word: normalizeSearchWord(word),
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: effectivePseudoPopularMinimumBookmarkCount(
@@ -498,6 +520,7 @@ final class SearchResultStore {
         word: String,
         sort: String = "date_desc",
         preferLocalPopularSort: Bool = false,
+        showsAIGenerated: Bool = true,
         bookmarkFilter: BookmarkFilterOption = .none,
         searchTarget: SearchTargetOption = .partialMatchForTags,
         startDate: Date? = nil,
@@ -524,6 +547,7 @@ final class SearchResultStore {
                 )
                 let batch = try await searchNovelsByPseudoPopularTags(
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -540,6 +564,7 @@ final class SearchResultStore {
                 scheduleNovelPseudoPopularEnrichment(
                     sessionID: novelPseudoPopularSessionID,
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -554,6 +579,7 @@ final class SearchResultStore {
                 )
                 let batch = try await searchNovelsByBookmarkCount(
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     searchTarget: searchTarget,
                     startDate: startDate,
                     endDate: endDate,
@@ -569,6 +595,7 @@ final class SearchResultStore {
                 scheduleNovelPseudoPopularEnrichment(
                     sessionID: novelPseudoPopularSessionID,
                     word: baseWord,
+                    showsAIGenerated: showsAIGenerated,
                     bookmarkFilter: bookmarkFilter,
                     searchTarget: searchTarget,
                     minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -580,6 +607,7 @@ final class SearchResultStore {
                     word: finalWord,
                     searchTarget: searchTarget.rawValue,
                     sort: sort,
+                    searchAIType: searchAITypeParameter(for: showsAIGenerated),
                     startDate: startDate,
                     endDate: endDate,
                     offset: self.novelOffset,
@@ -620,6 +648,7 @@ final class SearchResultStore {
         if usesUsersTagPseudoPopularSort {
             let batch = try await searchNovelsByPseudoPopularTags(
                 word: baseWord,
+                showsAIGenerated: context.showsAIGenerated,
                 bookmarkFilter: context.bookmarkFilter,
                 searchTarget: context.searchTarget,
                 minimumBookmarkCount: pseudoPopularMinimumBookmarkCount,
@@ -640,6 +669,7 @@ final class SearchResultStore {
         if usesPseudoPopularSort {
             let batch = try await searchNovelsByBookmarkCount(
                 word: baseWord,
+                showsAIGenerated: context.showsAIGenerated,
                 searchTarget: context.searchTarget,
                 startDate: context.startDate,
                 endDate: context.endDate,
@@ -660,6 +690,7 @@ final class SearchResultStore {
             word: baseWord + context.bookmarkFilter.suffix,
             searchTarget: context.searchTarget.rawValue,
             sort: context.sort,
+            searchAIType: searchAITypeParameter(for: context.showsAIGenerated),
             startDate: context.startDate,
             endDate: context.endDate,
             offset: 0,
@@ -675,6 +706,7 @@ final class SearchResultStore {
 
     private func searchIllustsByBookmarkCount(
         word: String,
+        showsAIGenerated: Bool,
         searchTarget: SearchTargetOption,
         startDate: Date?,
         endDate: Date?,
@@ -684,6 +716,7 @@ final class SearchResultStore {
     ) async throws -> SearchBatch<Illusts> {
         let sessionKey = makePseudoPopularSessionKey(
             word: word,
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: .none,
             searchTarget: searchTarget,
             minimumBookmarkCount: minimumBookmarkCount,
@@ -718,6 +751,7 @@ final class SearchResultStore {
 
     private func searchNovelsByBookmarkCount(
         word: String,
+        showsAIGenerated: Bool,
         searchTarget: SearchTargetOption,
         startDate: Date?,
         endDate: Date?,
@@ -727,6 +761,7 @@ final class SearchResultStore {
     ) async throws -> SearchBatch<Novel> {
         let sessionKey = makePseudoPopularSessionKey(
             word: word,
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: .none,
             searchTarget: searchTarget,
             minimumBookmarkCount: minimumBookmarkCount,
@@ -761,6 +796,7 @@ final class SearchResultStore {
 
     private func searchIllustsByPseudoPopularTags(
         word: String,
+        showsAIGenerated: Bool,
         bookmarkFilter: BookmarkFilterOption,
         searchTarget: SearchTargetOption,
         minimumBookmarkCount: Int,
@@ -771,6 +807,7 @@ final class SearchResultStore {
     ) async throws -> SearchBatch<Illusts> {
         let sessionKey = makePseudoPopularSessionKey(
             word: word,
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             minimumBookmarkCount: minimumBookmarkCount,
@@ -805,6 +842,7 @@ final class SearchResultStore {
 
     private func searchNovelsByPseudoPopularTags(
         word: String,
+        showsAIGenerated: Bool,
         bookmarkFilter: BookmarkFilterOption,
         searchTarget: SearchTargetOption,
         minimumBookmarkCount: Int,
@@ -815,6 +853,7 @@ final class SearchResultStore {
     ) async throws -> SearchBatch<Novel> {
         let sessionKey = makePseudoPopularSessionKey(
             word: word,
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             minimumBookmarkCount: minimumBookmarkCount,
@@ -968,6 +1007,7 @@ final class SearchResultStore {
                     word: queryState.query.word,
                     searchTarget: queryState.query.searchTarget.rawValue,
                     sort: SearchSortOption.dateDesc.rawValue,
+                    searchAIType: searchAITypeParameter(for: session.key.showsAIGenerated),
                     startDate: parseDateKey(session.key.startDate),
                     endDate: parseDateKey(session.key.endDate),
                     offset: queryState.nextOffset,
@@ -1019,6 +1059,7 @@ final class SearchResultStore {
                     word: queryState.query.word,
                     searchTarget: queryState.query.searchTarget.rawValue,
                     sort: SearchSortOption.dateDesc.rawValue,
+                    searchAIType: searchAITypeParameter(for: session.key.showsAIGenerated),
                     startDate: parseDateKey(session.key.startDate),
                     endDate: parseDateKey(session.key.endDate),
                     offset: queryState.nextOffset,
@@ -1063,6 +1104,7 @@ final class SearchResultStore {
                 word: session.key.word,
                 searchTarget: session.key.searchTarget.rawValue,
                 sort: SearchSortOption.dateDesc.rawValue,
+                searchAIType: searchAITypeParameter(for: session.key.showsAIGenerated),
                 startDate: parseDateKey(session.key.startDate),
                 endDate: parseDateKey(session.key.endDate),
                 offset: session.fallbackState.nextOffset,
@@ -1102,6 +1144,7 @@ final class SearchResultStore {
                 word: session.key.word,
                 searchTarget: session.key.searchTarget.rawValue,
                 sort: SearchSortOption.dateDesc.rawValue,
+                searchAIType: searchAITypeParameter(for: session.key.showsAIGenerated),
                 startDate: parseDateKey(session.key.startDate),
                 endDate: parseDateKey(session.key.endDate),
                 offset: session.fallbackState.nextOffset,
@@ -1184,6 +1227,7 @@ final class SearchResultStore {
         word: String,
         sort: String,
         preferLocalPopularSort: Bool,
+        showsAIGenerated: Bool,
         bookmarkFilter: BookmarkFilterOption,
         searchTarget: SearchTargetOption,
         startDate: Date?,
@@ -1193,6 +1237,7 @@ final class SearchResultStore {
             word: normalizeSearchWord(word),
             sort: sort,
             preferLocalPopularSort: preferLocalPopularSort,
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: dateKey(for: startDate),
@@ -1202,6 +1247,7 @@ final class SearchResultStore {
 
     private func makePseudoPopularSessionKey(
         word: String,
+        showsAIGenerated: Bool,
         bookmarkFilter: BookmarkFilterOption,
         searchTarget: SearchTargetOption,
         minimumBookmarkCount: Int,
@@ -1211,6 +1257,7 @@ final class SearchResultStore {
     ) -> PseudoPopularSessionKey {
         PseudoPopularSessionKey(
             word: normalizeSearchWord(word),
+            showsAIGenerated: showsAIGenerated,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             minimumBookmarkCount: minimumBookmarkCount,
@@ -1232,6 +1279,10 @@ final class SearchResultStore {
             ? pseudoPopularTitleAndCaptionMinimumBookmarkCount
             : pseudoPopularImplicitMinimumBookmarkCount
         return max(bookmarkFilter.rawValue, implicitMinimum)
+    }
+
+    private func searchAITypeParameter(for showsAIGenerated: Bool) -> Int {
+        showsAIGenerated ? 0 : 1
     }
 
     private func dateKey(for date: Date?) -> String? {
@@ -1280,7 +1331,7 @@ final class SearchResultStore {
     private func scheduleSupplementalSearch(
         sessionID: UUID,
         context: SearchExecutionContext,
-        prefetchNovelSignature: SearchRequestSignature,
+        prefetchNovelSignature: SearchRequestSignature
     ) {
         cancelSupplementalSearch()
         supplementalSearchTask = Task(priority: .utility) { [weak self] in
@@ -1313,6 +1364,7 @@ final class SearchResultStore {
     private func scheduleIllustPseudoPopularEnrichment(
         sessionID: UUID,
         word: String,
+        showsAIGenerated: Bool,
         bookmarkFilter: BookmarkFilterOption,
         searchTarget: SearchTargetOption,
         minimumBookmarkCount: Int,
@@ -1337,6 +1389,7 @@ final class SearchResultStore {
                 if usesUsersTagPseudoPopularSort {
                     batch = try await self.searchIllustsByPseudoPopularTags(
                         word: word,
+                        showsAIGenerated: showsAIGenerated,
                         bookmarkFilter: bookmarkFilter,
                         searchTarget: searchTarget,
                         minimumBookmarkCount: minimumBookmarkCount,
@@ -1348,6 +1401,7 @@ final class SearchResultStore {
                 } else {
                     batch = try await self.searchIllustsByBookmarkCount(
                         word: word,
+                        showsAIGenerated: showsAIGenerated,
                         searchTarget: searchTarget,
                         startDate: startDate,
                         endDate: endDate,
@@ -1377,6 +1431,7 @@ final class SearchResultStore {
     private func scheduleNovelPseudoPopularEnrichment(
         sessionID: UUID,
         word: String,
+        showsAIGenerated: Bool,
         bookmarkFilter: BookmarkFilterOption,
         searchTarget: SearchTargetOption,
         minimumBookmarkCount: Int,
@@ -1401,6 +1456,7 @@ final class SearchResultStore {
                 if usesUsersTagPseudoPopularSort {
                     batch = try await self.searchNovelsByPseudoPopularTags(
                         word: word,
+                        showsAIGenerated: showsAIGenerated,
                         bookmarkFilter: bookmarkFilter,
                         searchTarget: searchTarget,
                         minimumBookmarkCount: minimumBookmarkCount,
@@ -1412,6 +1468,7 @@ final class SearchResultStore {
                 } else {
                     batch = try await self.searchNovelsByBookmarkCount(
                         word: word,
+                        showsAIGenerated: showsAIGenerated,
                         searchTarget: searchTarget,
                         startDate: startDate,
                         endDate: endDate,

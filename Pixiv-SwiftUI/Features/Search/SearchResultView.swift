@@ -8,6 +8,7 @@ struct SearchResultView: View {
     @State private var novelSortOption: SearchSortOption = .dateDesc
     @State private var bookmarkFilter: BookmarkFilterOption = .none
     @State private var searchTarget: SearchTargetOption = .partialMatchForTags
+    @State private var showsAIGeneratedWorks: Bool = true
     @State private var startDate: Date?
     @State private var endDate: Date?
     @Environment(UserSettingStore.self) var settingStore
@@ -58,6 +59,7 @@ struct SearchResultView: View {
             preferLocalPopularSort: sortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
             prefetchNovelSort: novelSortOption.rawValue,
             prefetchNovelPreferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
+            showsAIGenerated: showsAIGeneratedWorks,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -70,6 +72,7 @@ struct SearchResultView: View {
             word: word,
             sort: novelSortOption.rawValue,
             preferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
+            showsAIGenerated: showsAIGeneratedWorks,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -90,6 +93,7 @@ struct SearchResultView: View {
             word: word,
             sort: sortOption.rawValue,
             preferLocalPopularSort: sortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
+            showsAIGenerated: showsAIGeneratedWorks,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -102,11 +106,245 @@ struct SearchResultView: View {
             word: word,
             sort: novelSortOption.rawValue,
             preferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
+            showsAIGenerated: showsAIGeneratedWorks,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
             endDate: endDate
         )
+    }
+
+    @ViewBuilder
+    private var resultContent: some View {
+        if store.isLoading && store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
+            SkeletonIllustWaterfallGrid(
+                columnCount: dynamicColumnCount,
+                itemCount: skeletonItemCount
+            )
+            .padding(.horizontal, 12)
+        } else if let error = store.errorMessage, store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
+            ContentUnavailableView("出错了", systemImage: "exclamationmark.triangle", description: Text(error))
+        } else if selectedTab == 0 {
+            illustTabContent
+        } else if selectedTab == 1 {
+            novelTabContent
+        } else {
+            userTabContent
+        }
+    }
+
+    @ViewBuilder
+    private var illustTabContent: some View {
+        if filteredIllusts.isEmpty && !store.illustResults.isEmpty && settingStore.blockedTags.contains(word) {
+            VStack(spacing: 20) {
+                Spacer()
+
+                Image(systemName: "eye.slash")
+                    .font(.system(size: 60))
+                    .foregroundColor(.secondary)
+
+                Text("标签 \"\(word)\" 已被屏蔽")
+                    .font(.title2)
+                    .foregroundColor(.primary)
+
+                Text("您已屏蔽此标签，因此没有显示相关插画")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                Button(action: {
+                    try? settingStore.removeBlockedTag(word)
+                }) {
+                    Text("取消屏蔽")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                }
+                .buttonStyle(GlassButtonStyle(color: themeManager.currentColor))
+
+                Spacer()
+            }
+            .padding()
+            .frame(minHeight: 300)
+        } else if filteredIllusts.isEmpty && !store.isLoading {
+            ContentUnavailableView("没有找到插画", systemImage: "magnifyingglass", description: Text("尝试搜索其他标签"))
+                .frame(minHeight: 300)
+        } else {
+            LazyVStack(spacing: 12) {
+                WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+                    NavigationLink(value: illust) {
+                        IllustCard(
+                            illust: illust,
+                            columnCount: dynamicColumnCount,
+                            columnWidth: columnWidth,
+                            showsBookmarkCount: shouldShowIllustBookmarkCount
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if store.illustHasMore {
+                    ProgressView()
+                        #if os(macOS)
+                        .controlSize(.small)
+                        #endif
+                        .padding()
+                        .onAppear {
+                            Task {
+                                await loadMoreIllustResults()
+                            }
+                        }
+                } else if !filteredIllusts.isEmpty {
+                    Text(String(localized: "已经到底了"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+
+    @ViewBuilder
+    private var novelTabContent: some View {
+        if filteredNovels.isEmpty && !store.novelResults.isEmpty && !store.isLoading {
+            VStack(spacing: 20) {
+                Spacer()
+
+                Image(systemName: "book.closed")
+                    .font(.system(size: 60))
+                    .foregroundColor(.secondary)
+
+                Text("没有找到小说")
+                    .font(.title2)
+                    .foregroundColor(.primary)
+
+                Text("尝试搜索其他标签")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                Spacer()
+            }
+            .frame(minHeight: 300)
+        } else {
+            LazyVStack(spacing: 12) {
+                ForEach(filteredNovels) { novel in
+                    NavigationLink(value: novel) {
+                        NovelListCard(novel: novel, showsBookmarkCount: shouldShowNovelBookmarkCount)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if store.novelHasMore {
+                    ProgressView()
+                        #if os(macOS)
+                        .controlSize(.small)
+                        #endif
+                        .padding()
+                        .onAppear {
+                            Task {
+                                await loadMoreNovelResults()
+                            }
+                        }
+                } else if !filteredNovels.isEmpty {
+                    Text(String(localized: "已经到底了"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private var userTabContent: some View {
+        if filteredUsers.isEmpty && !store.userResults.isEmpty && !store.isLoading {
+            VStack(spacing: 20) {
+                Spacer()
+
+                Image(systemName: "eye.slash")
+                    .font(.system(size: 60))
+                    .foregroundColor(.secondary)
+
+                Text("没有找到画师")
+                    .font(.title2)
+                    .foregroundColor(.primary)
+
+                Text("您已屏蔽所有搜索到的画师")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                Spacer()
+            }
+            .frame(minHeight: 300)
+        } else {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: userColumnCount), spacing: 12) {
+                ForEach(filteredUsers, id: \.id) { userPreview in
+                    NavigationLink(value: userPreview.user) {
+                        UserPreviewCard(userPreview: userPreview)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal)
+
+            if store.userHasMore {
+                ProgressView()
+                    #if os(macOS)
+                    .controlSize(.small)
+                    #endif
+                    .padding()
+                    .onAppear {
+                        Task {
+                            await store.loadMoreUsers(word: word)
+                        }
+                    }
+            } else if !filteredUsers.isEmpty {
+                Text(String(localized: "已经到底了"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding()
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var searchToolbar: some ToolbarContent {
+        if selectedTab == 0 {
+            ToolbarItem {
+                HStack(spacing: 0) {
+                    BookmarkFilterButton(selectedFilter: $bookmarkFilter)
+                    SearchTargetFilterButton(selectedTarget: $searchTarget)
+                    SearchAIFilterButton(showsAIGeneratedWorks: $showsAIGeneratedWorks)
+                    SearchDateRangeFilterButton(startDate: $startDate, endDate: $endDate)
+                    SearchSortButton(
+                        sortOption: $sortOption,
+                        isPremium: accountStore.currentAccount?.isPremium == 1,
+                        contentType: .illust
+                    )
+                }
+            }
+        } else if selectedTab == 1 {
+            ToolbarItem {
+                HStack(spacing: 0) {
+                    BookmarkFilterButton(selectedFilter: $bookmarkFilter)
+                    SearchTargetFilterButton(selectedTarget: $searchTarget)
+                    SearchAIFilterButton(showsAIGeneratedWorks: $showsAIGeneratedWorks)
+                    SearchDateRangeFilterButton(startDate: $startDate, endDate: $endDate)
+                    SearchSortButton(
+                        sortOption: $novelSortOption,
+                        isPremium: accountStore.currentAccount?.isPremium == 1,
+                        contentType: .novel
+                    )
+                }
+            }
+        }
     }
 
     var body: some View {
@@ -126,219 +364,11 @@ struct SearchResultView: View {
                         print("[SearchResultView] selectedTab changed to \(newValue)")
                     }
 
-                    if store.isLoading && store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
-                        SkeletonIllustWaterfallGrid(
-                            columnCount: dynamicColumnCount,
-                            itemCount: skeletonItemCount
-                        )
-                        .padding(.horizontal, 12)
-                    } else if let error = store.errorMessage, store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
-                        ContentUnavailableView("出错了", systemImage: "exclamationmark.triangle", description: Text(error))
-                    } else if selectedTab == 0 {
-                        if filteredIllusts.isEmpty && !store.illustResults.isEmpty && settingStore.blockedTags.contains(word) {
-                            VStack(spacing: 20) {
-                                Spacer()
-
-                                Image(systemName: "eye.slash")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.secondary)
-
-                                Text("标签 \"\(word)\" 已被屏蔽")
-                                    .font(.title2)
-                                    .foregroundColor(.primary)
-
-                                Text("您已屏蔽此标签，因此没有显示相关插画")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-
-                                Button(action: {
-                                    try? settingStore.removeBlockedTag(word)
-                                }) {
-                                    Text("取消屏蔽")
-                                        .font(.headline)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 48)
-                                }
-                                .buttonStyle(GlassButtonStyle(color: themeManager.currentColor))
-
-                                Spacer()
-                            }
-                            .padding()
-                            .frame(minHeight: 300)
-                        } else if filteredIllusts.isEmpty && !store.isLoading {
-                            ContentUnavailableView("没有找到插画", systemImage: "magnifyingglass", description: Text("尝试搜索其他标签"))
-                                .frame(minHeight: 300)
-                        } else {
-                            LazyVStack(spacing: 12) {
-                                WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
-                                    NavigationLink(value: illust) {
-                                        IllustCard(
-                                            illust: illust,
-                                            columnCount: dynamicColumnCount,
-                                            columnWidth: columnWidth,
-                                            showsBookmarkCount: shouldShowIllustBookmarkCount
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-
-                                if store.illustHasMore {
-                                    ProgressView()
-                                        #if os(macOS)
-                                        .controlSize(.small)
-                                        #endif
-                                        .padding()
-                                        .onAppear {
-                                            Task {
-                                                await loadMoreIllustResults()
-                                            }
-                                        }
-                                } else if !filteredIllusts.isEmpty {
-                                    Text(String(localized: "已经到底了"))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .padding()
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                        }
-                    } else if selectedTab == 1 {
-                        if filteredNovels.isEmpty && !store.novelResults.isEmpty && !store.isLoading {
-                            VStack(spacing: 20) {
-                                Spacer()
-
-                                Image(systemName: "book.closed")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.secondary)
-
-                                Text("没有找到小说")
-                                    .font(.title2)
-                                    .foregroundColor(.primary)
-
-                                Text("尝试搜索其他标签")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-
-                                Spacer()
-                            }
-                            .frame(minHeight: 300)
-                        } else {
-                            LazyVStack(spacing: 12) {
-                                ForEach(filteredNovels) { novel in
-                                    NavigationLink(value: novel) {
-                                        NovelListCard(novel: novel, showsBookmarkCount: shouldShowNovelBookmarkCount)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-
-                                if store.novelHasMore {
-                                    ProgressView()
-                                        #if os(macOS)
-                                        .controlSize(.small)
-                                        #endif
-                                        .padding()
-                                        .onAppear {
-                                            Task {
-                                                await loadMoreNovelResults()
-                                            }
-                                        }
-                                } else if !filteredNovels.isEmpty {
-                                    Text(String(localized: "已经到底了"))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .padding()
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    } else {
-                        if filteredUsers.isEmpty && !store.userResults.isEmpty && !store.isLoading {
-                            VStack(spacing: 20) {
-                                Spacer()
-
-                                Image(systemName: "eye.slash")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.secondary)
-
-                                Text("没有找到画师")
-                                    .font(.title2)
-                                    .foregroundColor(.primary)
-
-                                Text("您已屏蔽所有搜索到的画师")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-
-                                Spacer()
-                            }
-                            .frame(minHeight: 300)
-                        } else {
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: userColumnCount), spacing: 12) {
-                                ForEach(filteredUsers, id: \.id) { userPreview in
-                                    NavigationLink(value: userPreview.user) {
-                                        UserPreviewCard(userPreview: userPreview)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal)
-
-                            if store.userHasMore {
-                                ProgressView()
-                                    #if os(macOS)
-                                    .controlSize(.small)
-                                    #endif
-                                    .padding()
-                                    .onAppear {
-                                        Task {
-                                            await store.loadMoreUsers(word: word)
-                                        }
-                                    }
-                            } else if !filteredUsers.isEmpty {
-                                Text(String(localized: "已经到底了"))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding()
-                            }
-                        }
-                    }
+                    resultContent
                 }
             }
             .navigationTitle(word)
-            .toolbar {
-                if selectedTab == 0 {
-                    ToolbarItem {
-                        HStack(spacing: 0) {
-                            BookmarkFilterButton(selectedFilter: $bookmarkFilter)
-                            SearchTargetFilterButton(selectedTarget: $searchTarget)
-                            SearchDateRangeFilterButton(startDate: $startDate, endDate: $endDate)
-                            SearchSortButton(
-                                sortOption: $sortOption,
-                                isPremium: accountStore.currentAccount?.isPremium == 1,
-                                contentType: .illust
-                            )
-                        }
-                    }
-                } else if selectedTab == 1 {
-                    ToolbarItem {
-                        HStack(spacing: 0) {
-                            BookmarkFilterButton(selectedFilter: $bookmarkFilter)
-                            SearchTargetFilterButton(selectedTarget: $searchTarget)
-                            SearchDateRangeFilterButton(startDate: $startDate, endDate: $endDate)
-                            SearchSortButton(
-                                sortOption: $novelSortOption,
-                                isPremium: accountStore.currentAccount?.isPremium == 1,
-                                contentType: .novel
-                            )
-                        }
-                    }
-                }
-            }
+            .toolbar { searchToolbar }
             .onChange(of: sortOption) { _, _ in
                 guard selectedTab == 0 else { return }
                 Task {
@@ -357,6 +387,11 @@ struct SearchResultView: View {
                 }
             }
             .onChange(of: searchTarget) { _, _ in
+                Task {
+                    await performCurrentTabSearch()
+                }
+            }
+            .onChange(of: showsAIGeneratedWorks) { _, _ in
                 Task {
                     await performCurrentTabSearch()
                 }
@@ -404,5 +439,27 @@ struct SearchResultView: View {
 #Preview {
     NavigationStack {
         SearchResultView(word: "测试")
+    }
+}
+
+private struct SearchAIFilterButton: View {
+    @Binding var showsAIGeneratedWorks: Bool
+
+    var body: some View {
+        Menu {
+            Button {
+                showsAIGeneratedWorks.toggle()
+            } label: {
+                HStack {
+                    Text(String(localized: "显示 AI 生成作品"))
+                    if showsAIGeneratedWorks {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "sparkles")
+                .symbolVariant(showsAIGeneratedWorks ? .none : .fill)
+        }
     }
 }

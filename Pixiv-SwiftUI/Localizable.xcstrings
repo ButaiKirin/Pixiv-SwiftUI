@@ -3722,6 +3722,22 @@
         }
       }
     },
+    "显示 AI 生成作品" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show AI-generated Works"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示 AI 生成作品"
+          }
+        }
+      }
+    },
     "显示动图头像" : {
 
     },

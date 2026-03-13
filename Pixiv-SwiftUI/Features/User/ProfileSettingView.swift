@@ -14,7 +14,6 @@ struct ProfileSettingView: View {
         Form {
             generalSection
             #if os(iOS)
-            searchSection
             appearanceSection
             filterSection
             featureSection
@@ -149,30 +148,19 @@ struct ProfileSettingView: View {
                 .pickerStyle(.menu)
                 #endif
             }
+
+            Toggle(String(localized: "热门排序时显示收藏数"), isOn: Binding(
+                get: { userSettingStore.userSetting.showSearchPopularBookmarkCount },
+                set: { try? userSettingStore.setShowSearchPopularBookmarkCount($0) }
+            ))
+            .toggleStyle(.switch)
         } header: {
             Text("通用")
         } footer: {
             Text("中等画质节省流量，大图画质更清晰，原图画质最高清（可能消耗更多流量）")
         }
     }
-
     #if os(iOS)
-    private var searchSection: some View {
-        Section {
-            Toggle(isOn: Binding(
-                get: { userSettingStore.userSetting.showSearchPopularBookmarkCount },
-                set: { try? userSettingStore.setShowSearchPopularBookmarkCount($0) }
-            )) {
-                Label(String(localized: "热门排序时显示收藏数"), systemImage: "heart.text.square")
-            }
-            .toggleStyle(.switch)
-        } header: {
-            Text(String(localized: "搜索"))
-        } footer: {
-            Text(String(localized: "控制搜索页在热门排序或伪热门排序时是否展示作品收藏数。"))
-        }
-    }
-
     private var appearanceSection: some View {
         Section {
             NavigationLink(value: ProfileDestination.appearance) {
