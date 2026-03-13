@@ -155,12 +155,25 @@ struct SearchView: View {
     }
 
     @MainActor
-    private func performSearch(word: String) {
+    private func performSearch(word: String, translatedName: String? = nil) {
+        let normalizedWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedWord.isEmpty else { return }
+
         isSearchPresented = false
-        store.addHistory(word)
-        selectedTag = word
+        store.addHistory(SearchTag(name: normalizedWord, translatedName: translatedName))
+        store.searchText = normalizedWord
+        selectedTag = normalizedWord
+
+        let preloadToken = UUID()
+        SearchResultStore.scheduleSearchEntryPseudoPopularPreload(
+            word: normalizedWord,
+            token: preloadToken,
+            isPremium: accountStore.currentAccount?.isPremium == 1,
+            defaultSort: SearchSortOption(rawValue: userSettingStore.userSetting.defaultSearchSort) ?? .dateDesc
+        )
+
         path = NavigationPath()
-        path.append(SearchResultTarget(word: word))
+        path.append(SearchResultTarget(word: normalizedWord, preloadToken: preloadToken))
     }
 
     var body: some View {
@@ -196,7 +209,7 @@ struct SearchView: View {
                         try? userSettingStore.addBlockedTagWithInfo(name, translatedName: translatedName)
                         showBlockToast = true
                     },
-                    onSearch: performSearch
+                    onSearch: { performSearch(word: $0) }
                 )
             }
             #else
@@ -215,7 +228,7 @@ struct SearchView: View {
                         try? userSettingStore.addBlockedTagWithInfo(name, translatedName: translatedName)
                         showBlockToast = true
                     },
-                    onSearch: performSearch
+                    onSearch: { performSearch(word: $0) }
                 )
             }
             #endif
@@ -424,11 +437,7 @@ struct SearchView: View {
                             Group {
                                 if accountStore.isLoggedIn {
                                     Button(action: {
-                                        store.addHistory(tag)
-                                        store.searchText = tag.name
-                                        selectedTag = tag.name
-                                        path = NavigationPath()
-                                        path.append(SearchResultTarget(word: tag.name))
+                                        performSearch(word: tag.name, translatedName: tag.translatedName)
                                     }) {
                                         TagChip(searchTag: tag)
                                     }
@@ -499,12 +508,7 @@ struct SearchView: View {
                             HStack(spacing: 12) {
                                 ForEach(store.recommendedSearchTags) { tag in
                                     Button(action: {
-                                        let searchTag = SearchTag(name: tag.tag, translatedName: tag.translatedName)
-                                        store.addHistory(searchTag)
-                                        store.searchText = tag.tag
-                                        selectedTag = tag.tag
-                                        path = NavigationPath()
-                                        path.append(SearchResultTarget(word: tag.tag))
+                                        performSearch(word: tag.tag, translatedName: tag.translatedName)
                                     }) {
                                         trendTagContent(tag)
                                             .frame(width: 140, height: 140)
@@ -562,12 +566,7 @@ struct SearchView: View {
                                     Group {
                                         if accountStore.isLoggedIn {
                                             Button(action: {
-                                                let searchTag = SearchTag(name: tag.tag, translatedName: tag.translatedName)
-                                                store.addHistory(searchTag)
-                                                store.searchText = tag.tag
-                                                selectedTag = tag.tag
-                                                path = NavigationPath()
-                                                path.append(SearchResultTarget(word: tag.tag))
+                                                performSearch(word: tag.tag, translatedName: tag.translatedName)
                                             }) {
                                                 trendTagContent(tag)
                                             }
@@ -617,7 +616,7 @@ struct SearchView: View {
                     try? userSettingStore.addBlockedTagWithInfo(name, translatedName: translatedName)
                     showBlockToast = true
                 },
-                onSearch: performSearch
+                onSearch: { performSearch(word: $0) }
             )
         }
         .listStyle(.plain)

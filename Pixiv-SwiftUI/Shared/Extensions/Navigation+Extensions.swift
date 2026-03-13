@@ -59,7 +59,7 @@ extension View {
                     }
             }
             .navigationDestination(for: SearchResultTarget.self) { target in
-                SearchResultView(word: target.word)
+                SearchResultView(word: target.word, preloadToken: target.preloadToken)
                     .onAppear {
                         print(
                             "[pixivNavigationDestinations] SearchResultTarget destination triggered: \(target.word)"

@@ -132,6 +132,9 @@ final class UserSetting: Codable {
     /// 搜索页热门排序时是否显示收藏数
     var showSearchPopularBookmarkCount: Bool = false
 
+    /// 默认搜索排序
+    var defaultSearchSort: String = SearchSortOption.dateDesc.rawValue
+
     /// 复制信息文本格式
     var copyInfoText: String = "title:{title}\npainter:{user_name}\nillust id:{illust_id}"
 
@@ -318,6 +321,7 @@ final class UserSetting: Codable {
         case autoPlayUgoira
         case showGifAvatar
         case showSearchPopularBookmarkCount
+        case defaultSearchSort
         case copyInfoText
         case animContainer
         case nameEval
@@ -407,6 +411,7 @@ final class UserSetting: Codable {
         self.autoPlayUgoira = try container.decodeIfPresent(Bool.self, forKey: .autoPlayUgoira) ?? false
         self.showGifAvatar = try container.decodeIfPresent(Bool.self, forKey: .showGifAvatar) ?? true
         self.showSearchPopularBookmarkCount = try container.decodeIfPresent(Bool.self, forKey: .showSearchPopularBookmarkCount) ?? false
+        self.defaultSearchSort = try container.decodeIfPresent(String.self, forKey: .defaultSearchSort) ?? SearchSortOption.dateDesc.rawValue
         self.copyInfoText = try container.decodeIfPresent(String.self, forKey: .copyInfoText) ?? "title:{title}\npainter:{user_name}\nillust id:{illust_id}"
         self.animContainer = try container.decodeIfPresent(Bool.self, forKey: .animContainer) ?? true
         self.nameEval = try container.decodeIfPresent(String.self, forKey: .nameEval)
@@ -505,6 +510,7 @@ final class UserSetting: Codable {
         try container.encode(autoPlayUgoira, forKey: .autoPlayUgoira)
         try container.encode(showGifAvatar, forKey: .showGifAvatar)
         try container.encode(showSearchPopularBookmarkCount, forKey: .showSearchPopularBookmarkCount)
+        try container.encode(defaultSearchSort, forKey: .defaultSearchSort)
         try container.encode(copyInfoText, forKey: .copyInfoText)
         try container.encode(animContainer, forKey: .animContainer)
         try container.encodeIfPresent(nameEval, forKey: .nameEval)

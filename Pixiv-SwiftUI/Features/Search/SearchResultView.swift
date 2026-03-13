@@ -2,10 +2,11 @@ import SwiftUI
 
 struct SearchResultView: View {
     let word: String
+    let preloadToken: UUID?
     @State var store = SearchResultStore()
     @State private var selectedTab = 0
-    @State private var sortOption: SearchSortOption = .dateDesc
-    @State private var novelSortOption: SearchSortOption = .dateDesc
+    @State private var sortOption: SearchSortOption = SearchSortOption(rawValue: UserSettingStore.shared.userSetting.defaultSearchSort) ?? .dateDesc
+    @State private var novelSortOption: SearchSortOption = SearchSortOption(rawValue: UserSettingStore.shared.userSetting.defaultSearchSort) ?? .dateDesc
     @State private var bookmarkFilter: BookmarkFilterOption = .none
     @State private var searchTarget: SearchTargetOption = .partialMatchForTags
     @State private var showsAIGeneratedWorks: Bool = true
@@ -59,6 +60,8 @@ struct SearchResultView: View {
             preferLocalPopularSort: sortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
             prefetchNovelSort: novelSortOption.rawValue,
             prefetchNovelPreferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
+            allowsPseudoPopularPreload: accountStore.currentAccount?.isPremium != 1,
+            preloadToken: preloadToken,
             showsAIGenerated: showsAIGeneratedWorks,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
@@ -72,6 +75,7 @@ struct SearchResultView: View {
             word: word,
             sort: novelSortOption.rawValue,
             preferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
+            allowsPseudoPopularPreload: accountStore.currentAccount?.isPremium != 1,
             showsAIGenerated: showsAIGeneratedWorks,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
@@ -438,7 +442,7 @@ struct SearchResultView: View {
 
 #Preview {
     NavigationStack {
-        SearchResultView(word: "测试")
+        SearchResultView(word: "测试", preloadToken: nil)
     }
 }
 

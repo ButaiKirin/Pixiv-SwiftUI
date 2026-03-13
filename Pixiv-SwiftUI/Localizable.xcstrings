@@ -3452,6 +3452,7 @@
       }
     },
     "控制搜索页在热门排序或伪热门排序时是否展示作品收藏数。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4864,6 +4865,7 @@
       }
     },
     "热门排序（仅会员）" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6502,6 +6504,22 @@
     },
     "默认启动标签页" : {
 
+    },
+    "默认搜索排序" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Search Sort"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认搜索排序"
+          }
+        }
+      }
     },
     "默认私密收藏" : {
       "localizations" : {

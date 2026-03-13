@@ -3,6 +3,7 @@ import SwiftUI
 struct ProfileSettingView: View {
     @Environment(\ .dismiss) private var dismiss
     @Environment(UserSettingStore.self) var userSettingStore
+    @Environment(AccountStore.self) var accountStore
     @Binding var isPresented: Bool
     @State private var showingResetAlert = false
 
@@ -142,6 +143,20 @@ struct ProfileSettingView: View {
                 )) {
                     ForEach(NavigationItem.mainItems) { item in
                         Text(item.title).tag(item)
+                    }
+                }
+                #if os(macOS)
+                .pickerStyle(.menu)
+                #endif
+            }
+
+            LabeledContent(String(localized: "默认搜索排序")) {
+                Picker("", selection: Binding(
+                    get: { SearchSortOption(rawValue: userSettingStore.userSetting.defaultSearchSort) ?? .dateDesc },
+                    set: { try? userSettingStore.setDefaultSearchSort($0) }
+                )) {
+                    ForEach(SearchSortOption.allCases, id: \.self) { option in
+                        Text(option.displayName(isPremium: accountStore.currentAccount?.isPremium == 1)).tag(option)
                     }
                 }
                 #if os(macOS)

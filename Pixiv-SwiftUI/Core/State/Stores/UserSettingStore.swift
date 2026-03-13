@@ -945,6 +945,11 @@ final class UserSettingStore {
         try saveSetting()
     }
 
+    func setDefaultSearchSort(_ sort: SearchSortOption) throws {
+        userSetting.defaultSearchSort = sort.rawValue
+        try saveSetting()
+    }
+
     func setCheckUpdateOnLaunch(_ enabled: Bool) throws {
         userSetting.checkUpdateOnLaunch = enabled
         try saveSetting()
