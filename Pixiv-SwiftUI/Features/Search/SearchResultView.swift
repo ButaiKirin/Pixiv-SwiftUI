@@ -43,10 +43,19 @@ struct SearchResultView: View {
         #endif
     }
 
+    private var shouldShowIllustBookmarkCount: Bool {
+        sortOption == .popularDesc && settingStore.userSetting.showSearchPopularBookmarkCount
+    }
+
+    private var shouldShowNovelBookmarkCount: Bool {
+        novelSortOption != .popularDesc || settingStore.userSetting.showSearchPopularBookmarkCount
+    }
+
     private func performIllustSearch() async {
         await store.search(
             word: word,
             sort: sortOption.rawValue,
+            preferLocalPopularSort: sortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -58,6 +67,7 @@ struct SearchResultView: View {
         await store.searchNovels(
             word: word,
             sort: novelSortOption.rawValue,
+            preferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -77,6 +87,7 @@ struct SearchResultView: View {
         await store.loadMoreIllusts(
             word: word,
             sort: sortOption.rawValue,
+            preferLocalPopularSort: sortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -88,6 +99,7 @@ struct SearchResultView: View {
         await store.loadMoreNovels(
             word: word,
             sort: novelSortOption.rawValue,
+            preferLocalPopularSort: novelSortOption == .popularDesc && accountStore.currentAccount?.isPremium != 1,
             bookmarkFilter: bookmarkFilter,
             searchTarget: searchTarget,
             startDate: startDate,
@@ -160,7 +172,12 @@ struct SearchResultView: View {
                             LazyVStack(spacing: 12) {
                                 WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
                                     NavigationLink(value: illust) {
-                                        IllustCard(illust: illust, columnCount: dynamicColumnCount, columnWidth: columnWidth)
+                                        IllustCard(
+                                            illust: illust,
+                                            columnCount: dynamicColumnCount,
+                                            columnWidth: columnWidth,
+                                            showsBookmarkCount: shouldShowIllustBookmarkCount
+                                        )
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -211,7 +228,7 @@ struct SearchResultView: View {
                             LazyVStack(spacing: 12) {
                                 ForEach(filteredNovels) { novel in
                                     NavigationLink(value: novel) {
-                                        NovelListCard(novel: novel)
+                                        NovelListCard(novel: novel, showsBookmarkCount: shouldShowNovelBookmarkCount)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -354,7 +371,7 @@ struct SearchResultView: View {
             }
             .onChange(of: selectedTab) { _, newValue in
                 print("[SearchResultView] selectedTab changed to \(newValue)")
-                if newValue == 1 && store.novelResults.isEmpty {
+                if newValue == 1 {
                     Task {
                         await performNovelSearch()
                     }
@@ -373,6 +390,7 @@ struct SearchResultView: View {
                 }
             }
             .onDisappear {
+                store.cancelBackgroundTasks()
                 print("[SearchResultView] disappeared: word='\(word)', viewId=\(viewId)")
             }
             .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)

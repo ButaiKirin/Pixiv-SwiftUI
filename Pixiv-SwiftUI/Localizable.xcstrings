@@ -1176,6 +1176,22 @@
     "会同步：安全设置子集、屏蔽/过滤数据、搜索历史、小说阅读进度与阅读器设置" : {
 
     },
+    "伪·热门排序（收藏数）" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pseudo Popular Sort (Bookmarks)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伪·热门排序（收藏数）"
+          }
+        }
+      }
+    },
     "作品已删除" : {
       "localizations" : {
         "en" : {
@@ -3435,6 +3451,22 @@
         }
       }
     },
+    "控制搜索页在热门排序或伪热门排序时是否展示作品收藏数。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controls whether bookmark counts are shown in search results when popular or pseudo-popular sorting is active."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "控制搜索页在热门排序或伪热门排序时是否展示作品收藏数。"
+          }
+        }
+      }
+    },
     "推荐" : {
       "localizations" : {
         "en" : {
@@ -4827,6 +4859,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "热门排序（仅会员）"
+          }
+        }
+      }
+    },
+    "热门排序（收藏数）" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Popular Sort (Bookmarks)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "热门排序（收藏数）"
+          }
+        }
+      }
+    },
+    "热门排序时显示收藏数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Bookmark Counts in Popular Sort"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "热门排序时显示收藏数"
           }
         }
       }

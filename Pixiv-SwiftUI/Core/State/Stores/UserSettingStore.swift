@@ -246,6 +246,11 @@ final class UserSettingStore {
         try saveSetting()
     }
 
+    func setShowSearchPopularBookmarkCount(_ enabled: Bool) throws {
+        userSetting.showSearchPopularBookmarkCount = enabled
+        try saveSetting()
+    }
+
     // MARK: - 其他设置
 
     func setAIDisplayMode(_ mode: Int) throws {

@@ -6,11 +6,13 @@ struct NovelListCard: View {
     @Environment(\.openWindow) var openWindow
     #endif
     let novel: Novel
+    var showsBookmarkCount: Bool
 
     @State private var isBookmarked: Bool = false
 
-    init(novel: Novel) {
+    init(novel: Novel, showsBookmarkCount: Bool = true) {
         self.novel = novel
+        self.showsBookmarkCount = showsBookmarkCount
         _isBookmarked = State(initialValue: novel.isBookmarked)
     }
 
@@ -69,9 +71,11 @@ struct NovelListCard: View {
                     .foregroundColor(isBookmarked ? .red : .secondary)
                     .font(.system(size: 18))
 
-                Text("\(novel.totalBookmarks)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                if showsBookmarkCount {
+                    Text("\(novel.totalBookmarks)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
             .frame(width: 40)
         }

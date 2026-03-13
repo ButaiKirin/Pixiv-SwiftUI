@@ -16,6 +16,7 @@ struct GeneralSettingsView: View {
             #if os(macOS)
             macOSSection
             #endif
+            searchSection
             privateLikeSection
             cacheSection
         }
@@ -210,6 +211,22 @@ struct GeneralSettingsView: View {
             Text(String(localized: "收藏设置"))
         } footer: {
             Text(String(localized: "开启后，收藏作品时将默认为非公开状态"))
+        }
+    }
+
+    private var searchSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { userSettingStore.userSetting.showSearchPopularBookmarkCount },
+                set: { try? userSettingStore.setShowSearchPopularBookmarkCount($0) }
+            )) {
+                Label(String(localized: "热门排序时显示收藏数"), systemImage: "heart.text.square")
+            }
+            .toggleStyle(.switch)
+        } header: {
+            Text(String(localized: "搜索"))
+        } footer: {
+            Text(String(localized: "控制搜索页在热门排序或伪热门排序时是否展示作品收藏数。"))
         }
     }
 

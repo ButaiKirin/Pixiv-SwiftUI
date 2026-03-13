@@ -14,14 +14,22 @@ struct IllustCard: View {
     let columnCount: Int
     var columnWidth: CGFloat?
     var expiration: CacheExpiration?
+    var showsBookmarkCount: Bool
 
     @State private var isBookmarked: Bool = false
 
-    init(illust: Illusts, columnCount: Int = 2, columnWidth: CGFloat? = nil, expiration: CacheExpiration? = nil) {
+    init(
+        illust: Illusts,
+        columnCount: Int = 2,
+        columnWidth: CGFloat? = nil,
+        expiration: CacheExpiration? = nil,
+        showsBookmarkCount: Bool = false
+    ) {
         self.illust = illust
         self.columnCount = columnCount
         self.columnWidth = columnWidth
         self.expiration = expiration
+        self.showsBookmarkCount = showsBookmarkCount
         _isBookmarked = State(initialValue: illust.isBookmarked)
     }
 
@@ -123,6 +131,23 @@ struct IllustCard: View {
                         .background(.ultraThinMaterial)
                         .cornerRadius(8)
                         .padding(6)
+                }
+
+                if showsBookmarkCount {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill")
+                            .font(.caption2)
+                        Text(NumberFormatter.formatCount(illust.totalBookmarks))
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(8)
+                    .padding(6)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                 }
             }
 

@@ -15,7 +15,7 @@ struct SearchSortButton: View {
         case .illust:
             return SearchSortOption.allCases
         case .novel:
-            return [.dateDesc, .dateAsc]
+            return SearchSortOption.allCases
         }
     }
 
@@ -26,7 +26,7 @@ struct SearchSortButton: View {
                     sortOption = option
                 } label: {
                     HStack {
-                        Text(option.displayName)
+                        Text(option.displayName(isPremium: isPremium))
                         if sortOption == option {
                             Image(systemName: "checkmark")
                         }

@@ -6,14 +6,21 @@ enum SearchSortOption: String, CaseIterable {
     case popularDesc = "popular_desc"
 
     var displayName: String {
+        displayName(isPremium: true)
+    }
+
+    func displayName(isPremium: Bool) -> String {
         switch self {
         case .dateDesc: return String(localized: "发布时间（从新到旧）")
         case .dateAsc: return String(localized: "发布时间（从旧到新）")
-        case .popularDesc: return String(localized: "热门排序（仅会员）")
+        case .popularDesc:
+            return isPremium
+                ? String(localized: "热门排序（收藏数）")
+                : String(localized: "伪·热门排序（收藏数）")
         }
     }
 
     var requiresPremium: Bool {
-        self == .popularDesc
+        false
     }
 }
