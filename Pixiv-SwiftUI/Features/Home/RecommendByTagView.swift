@@ -11,8 +11,6 @@ struct RecommendByTagView: View {
     @Environment(ThemeManager.self) var themeManager
     @Environment(\.dismiss) private var dismiss
 
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
-
     private var filteredIllusts: [Illusts] {
         settingStore.filterIllusts(illusts)
     }
@@ -26,67 +24,74 @@ struct RecommendByTagView: View {
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                if isLoading && illusts.isEmpty {
-                    SkeletonIllustWaterfallGrid(
-                        columnCount: dynamicColumnCount,
-                        itemCount: skeletonItemCount
-                    )
-                    .padding(.horizontal, 12)
-                } else if let error = errorMessage, illusts.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray)
-                        Text(error)
-                            .foregroundColor(.gray)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                        Button(action: {
-                            Task {
-                                await fetchIllusts(refresh: true)
-                            }
-                        }) {
-                            Text(String(localized: "重试"))
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 64)
-                } else {
-                    WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
-                        NavigationLink(value: illust) {
-                            IllustCard(illust: illust, columnCount: dynamicColumnCount, columnWidth: columnWidth)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 12)
+        GeometryReader { proxy in
+            let dynamicColumnCount = ResponsiveGrid.columnCount(for: proxy.size.width, userSetting: settingStore.userSetting)
+            let horizontalPadding: CGFloat = 24
+            let availableWidth = proxy.size.width - horizontalPadding
+            let waterfallWidth = availableWidth > 0 ? availableWidth : nil
 
-                    if hasMoreData && !isLoading {
-                        LazyVStack {
-                            ProgressView()
-                                #if os(macOS)
-                                .controlSize(.small)
-                                #endif
-                                .padding()
-                                .id(fetchIndex)
-                                .onAppear {
-                                    Task {
-                                        await loadMoreData()
-                                    }
+            ScrollView {
+                VStack(spacing: 0) {
+                    if isLoading && illusts.isEmpty {
+                        SkeletonIllustWaterfallGrid(
+                            columnCount: dynamicColumnCount,
+                            itemCount: skeletonItemCount,
+                            width: waterfallWidth
+                        )
+                        .padding(.horizontal, 12)
+                    } else if let error = errorMessage, illusts.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 48))
+                                .foregroundColor(.gray)
+                            Text(error)
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                            Button(action: {
+                                Task {
+                                    await fetchIllusts(refresh: true)
                                 }
+                            }) {
+                                Text(String(localized: "重试"))
+                            }
+                            .buttonStyle(.bordered)
                         }
-                    } else if !filteredIllusts.isEmpty {
-                        Text(String(localized: "已经到底了"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding()
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 64)
+                    } else {
+                        WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, width: waterfallWidth, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+                            NavigationLink(value: illust) {
+                                IllustCard(illust: illust, columnCount: dynamicColumnCount, columnWidth: columnWidth)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 12)
+
+                        if hasMoreData && !isLoading {
+                            LazyVStack {
+                                ProgressView()
+                                    #if os(macOS)
+                                    .controlSize(.small)
+                                    #endif
+                                    .padding()
+                                    .id(fetchIndex)
+                                    .onAppear {
+                                        Task {
+                                            await loadMoreData()
+                                        }
+                                    }
+                            }
+                        } else if !filteredIllusts.isEmpty {
+                            Text(String(localized: "已经到底了"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding()
+                        }
                     }
                 }
             }
         }
-        .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)
         .navigationTitle(target.translatedName ?? target.tag)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

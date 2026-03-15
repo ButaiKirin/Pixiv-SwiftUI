@@ -22,8 +22,6 @@ struct BrowseHistoryView: View {
     @State private var showingClearAlert = false
     private let batchSize = 20
 
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
-
     @Environment(AccountStore.self) var accountStore
 
     private var skeletonItemCount: Int {
@@ -76,23 +74,30 @@ struct BrowseHistoryView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                Picker("类型", selection: $selectedType) {
-                    Text("插画").tag(BrowseHistoryType.illust)
-                    Text("小说").tag(BrowseHistoryType.novel)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
+        GeometryReader { proxy in
+            let dynamicColumnCount = ResponsiveGrid.columnCount(for: proxy.size.width, userSetting: userSettingStore.userSetting)
+            let horizontalPadding: CGFloat = 24
+            let availableWidth = proxy.size.width - horizontalPadding
+            let waterfallWidth = availableWidth > 0 ? availableWidth : nil
 
-                if let error = error {
-                    errorContent(error)
-                } else if selectedType == .illust {
-                    illustGridContent
-                } else {
-                    novelListContent
+            ScrollView {
+                VStack(spacing: 0) {
+                    Picker("类型", selection: $selectedType) {
+                        Text("插画").tag(BrowseHistoryType.illust)
+                        Text("小说").tag(BrowseHistoryType.novel)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+
+                    if let error = error {
+                        errorContent(error)
+                    } else if selectedType == .illust {
+                        illustGridContent(columnCount: dynamicColumnCount, waterfallWidth: waterfallWidth)
+                    } else {
+                        novelListContent
+                    }
                 }
             }
         }
@@ -122,13 +127,13 @@ struct BrowseHistoryView: View {
     }
 
     @ViewBuilder
-    private var illustGridContent: some View {
+    private func illustGridContent(columnCount: Int, waterfallWidth: CGFloat?) -> some View {
         if isLoading && illusts.isEmpty {
-            illustLoadingContent
+            illustLoadingContent(columnCount: columnCount, waterfallWidth: waterfallWidth)
         } else if illusts.isEmpty {
             emptyContent(type: "插画")
         } else {
-            illustGrid
+            illustGrid(columnCount: columnCount, waterfallWidth: waterfallWidth)
         }
     }
 
@@ -143,10 +148,11 @@ struct BrowseHistoryView: View {
         }
     }
 
-    private var illustLoadingContent: some View {
+    private func illustLoadingContent(columnCount: Int, waterfallWidth: CGFloat?) -> some View {
         SkeletonIllustWaterfallGrid(
-            columnCount: dynamicColumnCount,
-            itemCount: skeletonItemCount
+            columnCount: columnCount,
+            itemCount: skeletonItemCount,
+            width: waterfallWidth
         )
         .padding(.horizontal, 12)
     }
@@ -176,9 +182,9 @@ struct BrowseHistoryView: View {
         .frame(minHeight: 300)
     }
 
-    private var illustGrid: some View {
+    private func illustGrid(columnCount: Int, waterfallWidth: CGFloat?) -> some View {
         VStack(spacing: 12) {
-            WaterfallGrid(data: illusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+            WaterfallGrid(data: illusts, columnCount: columnCount, width: waterfallWidth, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
                 NavigationLink(value: IllustIdTarget(id: illust.id)) {
                     BrowseHistoryCard(illust: illust, columnWidth: columnWidth)
                 }
@@ -205,7 +211,6 @@ struct BrowseHistoryView: View {
                     .padding()
             }
         }
-        .responsiveGridColumnCount(userSetting: userSettingStore.userSetting, columnCount: $dynamicColumnCount)
     }
 
     private var novelList: some View {

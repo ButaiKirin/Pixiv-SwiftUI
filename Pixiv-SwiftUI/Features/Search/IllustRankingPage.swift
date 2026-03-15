@@ -9,8 +9,6 @@ struct IllustRankingPage: View {
     @Environment(UserSettingStore.self) var settingStore
     @Environment(AccountStore.self) var accountStore
 
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
-
     private var rankingTypes: [IllustRankingType] {
         [.daily, .dailyMale, .dailyFemale, .week, .month]
     }
@@ -53,7 +51,12 @@ struct IllustRankingPage: View {
     }
 
     var body: some View {
-        GeometryReader { _ in
+        GeometryReader { proxy in
+            let dynamicColumnCount = ResponsiveGrid.columnCount(for: proxy.size.width, userSetting: settingStore.userSetting)
+            let horizontalPadding: CGFloat = 24
+            let availableWidth = proxy.size.width - horizontalPadding
+            let waterfallWidth = availableWidth > 0 ? availableWidth : nil
+
             ScrollView {
                 VStack(spacing: 0) {
                     VStack(spacing: 12) {
@@ -82,7 +85,8 @@ struct IllustRankingPage: View {
                     if illusts.isEmpty && isLoading {
                         SkeletonIllustWaterfallGrid(
                             columnCount: dynamicColumnCount,
-                            itemCount: skeletonItemCount
+                            itemCount: skeletonItemCount,
+                            width: waterfallWidth
                         )
                         .padding(.horizontal, 12)
                         .frame(minHeight: 400)
@@ -96,7 +100,7 @@ struct IllustRankingPage: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: 200)
                     } else {
-                        WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+                        WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, width: waterfallWidth, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
                             NavigationLink(value: illust) {
                                 IllustCard(illust: illust, columnCount: dynamicColumnCount, columnWidth: columnWidth, expiration: DefaultCacheExpiration.recommend)
                             }
@@ -160,7 +164,6 @@ struct IllustRankingPage: View {
                     isLoading = false
                 }
             }
-            .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)
             .onChange(of: accountStore.currentUserId) { _, _ in
                 Task {
                     isLoading = true

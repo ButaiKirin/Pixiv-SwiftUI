@@ -21,8 +21,6 @@ struct RecommendView: View {
     @State private var showAuthView = false
     @Environment(AccountStore.self) var accountStore
 
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
-
     @State private var searchStore = SearchStore.shared
 
     private let cache = CacheManager.shared
@@ -60,9 +58,14 @@ struct RecommendView: View {
         return isLoggedIn ? "recommend\(typeSuffix)_0" : "walkthrough\(typeSuffix)_0"
     }
 
-    private var mainList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
+    private func mainList(containerWidth: CGFloat) -> some View {
+        let dynamicColumnCount = ResponsiveGrid.columnCount(for: containerWidth, userSetting: settingStore.userSetting)
+        let horizontalPadding: CGFloat = 24
+        let availableWidth = containerWidth - horizontalPadding
+        let waterfallWidth = availableWidth > 0 ? availableWidth : nil
+
+        return ScrollView {
+            VStack(spacing: 0) {
                 if !isLoggedIn {
                     LoginBannerView(onLogin: {
                         showAuthView = true
@@ -105,7 +108,8 @@ struct RecommendView: View {
                 if filteredIllusts.isEmpty && isLoading {
                     SkeletonIllustWaterfallGrid(
                         columnCount: dynamicColumnCount,
-                        itemCount: skeletonItemCount
+                        itemCount: skeletonItemCount,
+                        width: waterfallWidth
                     )
                     .padding(.horizontal, 12)
                     .frame(minHeight: 400)
@@ -124,7 +128,7 @@ struct RecommendView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 32)
                 } else {
-                    WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+                    WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, width: waterfallWidth, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
                         NavigationLink(value: illust) {
                             IllustCard(illust: illust, columnCount: dynamicColumnCount, columnWidth: columnWidth, expiration: DefaultCacheExpiration.recommend)
                         }
@@ -160,9 +164,11 @@ struct RecommendView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                mainList
-                errorView
+            GeometryReader { proxy in
+                VStack(spacing: 0) {
+                    mainList(containerWidth: proxy.size.width)
+                    errorView
+                }
             }
             #if os(macOS)
             .background(Color(nsColor: .windowBackgroundColor))
@@ -245,7 +251,6 @@ struct RecommendView: View {
                     accountStore.navigationRequest = nil
                 }
             }
-            .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)
             .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentPage)) { _ in
                 Task {
                     await refreshAll()

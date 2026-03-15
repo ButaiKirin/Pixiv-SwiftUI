@@ -6,7 +6,6 @@ struct SauceNaoResultListView: View {
     let requestId: UUID
     @State private var store: SauceNaoResultListStore
     @Environment(UserSettingStore.self) private var settingStore
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
 
     init(requestId: UUID) {
         self.requestId = requestId
@@ -23,57 +22,64 @@ struct SauceNaoResultListView: View {
     }
 
     var body: some View {
-        ZStack {
-            if let errorMessage = store.errorMessage {
-                ContentUnavailableView(
-                    "出错了",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(errorMessage)
-                )
-            } else if store.isLoading && filteredItems.isEmpty {
-                VStack(spacing: 12) {
-                    ProgressView()
-                    Text("正在以图搜图...")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else if allDetailLoadsFailed {
-                ContentUnavailableView(
-                    "未能加载可显示的插画",
-                    systemImage: "wifi.exclamationmark",
-                    description: Text("共匹配 \(store.matches.count) 条，详情加载失败 \(store.failedDetailCount) 条")
-                )
-            } else if store.hasSearched && store.matches.isEmpty {
-                ContentUnavailableView(
-                    "没有找到结果",
-                    systemImage: "photo.badge.questionmark"
-                )
-            } else if store.hasSearched && filteredItems.isEmpty {
-                ContentUnavailableView(
-                    "没有可显示的结果",
-                    systemImage: "exclamationmark.triangle"
-                )
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        WaterfallGrid(data: filteredItems, columnCount: dynamicColumnCount, aspectRatio: { $0.illust.safeAspectRatio }) { item, columnWidth in
-                            NavigationLink(value: item.illust) {
-                                SauceNaoResultWaterfallCard(
-                                    item: item,
-                                    columnCount: dynamicColumnCount,
-                                    columnWidth: columnWidth
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
+        GeometryReader { proxy in
+            let dynamicColumnCount = ResponsiveGrid.columnCount(for: proxy.size.width, userSetting: settingStore.userSetting)
+            let horizontalPadding: CGFloat = 24
+            let availableWidth = proxy.size.width - horizontalPadding
+            let waterfallWidth = availableWidth > 0 ? availableWidth : nil
 
-                        if store.isLoading {
-                            ProgressView()
-                                .padding(.vertical, 8)
-                        }
+            ZStack {
+                if let errorMessage = store.errorMessage {
+                    ContentUnavailableView(
+                        "出错了",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(errorMessage)
+                    )
+                } else if store.isLoading && filteredItems.isEmpty {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("正在以图搜图...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
+                } else if allDetailLoadsFailed {
+                    ContentUnavailableView(
+                        "未能加载可显示的插画",
+                        systemImage: "wifi.exclamationmark",
+                        description: Text("共匹配 \(store.matches.count) 条，详情加载失败 \(store.failedDetailCount) 条")
+                    )
+                } else if store.hasSearched && store.matches.isEmpty {
+                    ContentUnavailableView(
+                        "没有找到结果",
+                        systemImage: "photo.badge.questionmark"
+                    )
+                } else if store.hasSearched && filteredItems.isEmpty {
+                    ContentUnavailableView(
+                        "没有可显示的结果",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                } else {
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            WaterfallGrid(data: filteredItems, columnCount: dynamicColumnCount, width: waterfallWidth, aspectRatio: { $0.illust.safeAspectRatio }) { item, columnWidth in
+                                NavigationLink(value: item.illust) {
+                                    SauceNaoResultWaterfallCard(
+                                        item: item,
+                                        columnCount: dynamicColumnCount,
+                                        columnWidth: columnWidth
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            if store.isLoading {
+                                ProgressView()
+                                    .padding(.vertical, 8)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                    }
                 }
             }
         }
@@ -81,7 +87,6 @@ struct SauceNaoResultListView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)
         .task {
             await store.loadIfNeeded()
         }

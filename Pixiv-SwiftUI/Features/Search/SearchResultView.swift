@@ -18,9 +18,6 @@ struct SearchResultView: View {
     @Environment(\.dismiss) private var dismiss
     let instanceId = UUID()
 
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
-    @State private var userColumnCount: Int = 1
-
     private var viewId: String {
         "\(instanceId)"
     }
@@ -119,26 +116,27 @@ struct SearchResultView: View {
     }
 
     @ViewBuilder
-    private var resultContent: some View {
+    private func resultContent(columnCount: Int, waterfallWidth: CGFloat?, userColumnCount: Int) -> some View {
         if store.isLoading && store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
             SkeletonIllustWaterfallGrid(
-                columnCount: dynamicColumnCount,
-                itemCount: skeletonItemCount
+                columnCount: columnCount,
+                itemCount: skeletonItemCount,
+                width: waterfallWidth
             )
             .padding(.horizontal, 12)
         } else if let error = store.errorMessage, store.illustResults.isEmpty && store.novelResults.isEmpty && store.userResults.isEmpty {
             ContentUnavailableView("出错了", systemImage: "exclamationmark.triangle", description: Text(error))
         } else if selectedTab == 0 {
-            illustTabContent
+            illustTabContent(columnCount: columnCount, waterfallWidth: waterfallWidth)
         } else if selectedTab == 1 {
             novelTabContent
         } else {
-            userTabContent
+            userTabContent(columnCount: userColumnCount)
         }
     }
 
     @ViewBuilder
-    private var illustTabContent: some View {
+    private func illustTabContent(columnCount: Int, waterfallWidth: CGFloat?) -> some View {
         if filteredIllusts.isEmpty && !store.illustResults.isEmpty && settingStore.blockedTags.contains(word) {
             VStack(spacing: 20) {
                 Spacer()
@@ -175,12 +173,12 @@ struct SearchResultView: View {
             ContentUnavailableView("没有找到插画", systemImage: "magnifyingglass", description: Text("尝试搜索其他标签"))
                 .frame(minHeight: 300)
         } else {
-            LazyVStack(spacing: 12) {
-                WaterfallGrid(data: filteredIllusts, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+            VStack(spacing: 12) {
+                WaterfallGrid(data: filteredIllusts, columnCount: columnCount, width: waterfallWidth, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
                     NavigationLink(value: illust) {
                         IllustCard(
                             illust: illust,
-                            columnCount: dynamicColumnCount,
+                            columnCount: columnCount,
                             columnWidth: columnWidth,
                             showsBookmarkCount: shouldShowIllustBookmarkCount
                         )
@@ -265,7 +263,7 @@ struct SearchResultView: View {
     }
 
     @ViewBuilder
-    private var userTabContent: some View {
+    private func userTabContent(columnCount: Int) -> some View {
         if filteredUsers.isEmpty && !store.userResults.isEmpty && !store.isLoading {
             VStack(spacing: 20) {
                 Spacer()
@@ -288,7 +286,7 @@ struct SearchResultView: View {
             }
             .frame(minHeight: 300)
         } else {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: userColumnCount), spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columnCount), spacing: 12) {
                 ForEach(filteredUsers, id: \.id) { userPreview in
                     NavigationLink(value: userPreview.user) {
                         UserPreviewCard(userPreview: userPreview)
@@ -352,7 +350,13 @@ struct SearchResultView: View {
     }
 
     var body: some View {
-        GeometryReader { _ in
+        GeometryReader { proxy in
+            let dynamicColumnCount = ResponsiveGrid.columnCount(for: proxy.size.width, userSetting: settingStore.userSetting)
+            let userColumnCount = ResponsiveGrid.userColumnCount(for: proxy.size.width)
+            let horizontalPadding: CGFloat = 24
+            let availableWidth = proxy.size.width - horizontalPadding
+            let waterfallWidth = availableWidth > 0 ? availableWidth : nil
+
             ScrollView {
                 LazyVStack(spacing: 0) {
                     Picker("类型", selection: $selectedTab) {
@@ -368,7 +372,7 @@ struct SearchResultView: View {
                         print("[SearchResultView] selectedTab changed to \(newValue)")
                     }
 
-                    resultContent
+                    resultContent(columnCount: dynamicColumnCount, waterfallWidth: waterfallWidth, userColumnCount: userColumnCount)
                 }
             }
             .navigationTitle(word)
@@ -434,8 +438,6 @@ struct SearchResultView: View {
                 store.cancelBackgroundTasks()
                 print("[SearchResultView] disappeared: word='\(word)', viewId=\(viewId)")
             }
-            .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)
-            .responsiveUserGridColumnCount(columnCount: $userColumnCount)
         }
     }
 }

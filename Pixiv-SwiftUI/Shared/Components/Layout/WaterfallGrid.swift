@@ -116,8 +116,10 @@ struct WaterfallGrid<Data, Content>: View where Data: RandomAccessCollection, Da
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .onAppear {
             recalculateColumns()
         }

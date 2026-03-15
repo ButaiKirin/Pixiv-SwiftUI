@@ -90,6 +90,7 @@ enum ResponsiveGrid {
 struct ResponsiveGridModifier: ViewModifier {
     let userSetting: UserSetting?
     @Binding var columnCount: Int
+    var measuredWidth: Binding<CGFloat>?
     @State private var lastWidth: CGFloat = 0
 
     func body(content: Content) -> some View {
@@ -117,6 +118,7 @@ struct ResponsiveGridModifier: ViewModifier {
     private func updateColumnCount(for width: CGFloat) {
         guard width > 0 else { return }
         lastWidth = width
+        measuredWidth?.wrappedValue = width
         columnCount = ResponsiveGrid.columnCount(for: width, userSetting: userSetting)
     }
 }
@@ -150,9 +152,10 @@ struct ResponsiveUserGridModifier: ViewModifier {
 extension View {
     func responsiveGridColumnCount(
         userSetting: UserSetting? = nil,
-        columnCount: Binding<Int>
+        columnCount: Binding<Int>,
+        measuredWidth: Binding<CGFloat>? = nil
     ) -> some View {
-        modifier(ResponsiveGridModifier(userSetting: userSetting, columnCount: columnCount))
+        modifier(ResponsiveGridModifier(userSetting: userSetting, columnCount: columnCount, measuredWidth: measuredWidth))
     }
 
     func responsiveUserGridColumnCount(

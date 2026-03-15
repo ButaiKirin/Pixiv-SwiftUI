@@ -10,8 +10,6 @@ struct UpdatesPage: View {
     @Environment(UserSettingStore.self) var settingStore
     var accountStore: AccountStore = AccountStore.shared
 
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
-
     private var restrictString: String {
         selectedRestrict == .privateAccess ? "private" : "public"
     }
@@ -42,108 +40,115 @@ struct UpdatesPage: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            Group {
-                if !isLoggedIn {
-                    NotLoggedInView(onLogin: {
-                        showAuthView = true
-                    })
-                } else {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            FollowingHorizontalList(store: store, path: $path)
-                                .padding(.vertical, 8)
+            GeometryReader { proxy in
+                let dynamicColumnCount = ResponsiveGrid.columnCount(for: proxy.size.width, userSetting: settingStore.userSetting)
+                let horizontalPadding: CGFloat = 24
+                let availableWidth = proxy.size.width - horizontalPadding
+                let waterfallWidth = availableWidth > 0 ? availableWidth : nil
 
-                            if (store.isLoadingUpdates || !store.hasFetchedUpdates) && store.updates.isEmpty {
-                                SkeletonIllustWaterfallGrid(
-                                    columnCount: dynamicColumnCount,
-                                    itemCount: skeletonItemCount
-                                )
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 400)
-                            } else if store.updates.isEmpty {
-                                VStack(spacing: 16) {
-                                    Image(systemName: "photo.on.rectangle.angled")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.gray)
-                                    Text("暂无动态")
-                                        .foregroundColor(.gray)
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(.top, 50)
-                            } else {
-                                WaterfallGrid(data: filteredUpdates, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
-                                    NavigationLink(value: illust) {
-                                        IllustCard(
-                                            illust: illust,
-                                            columnCount: dynamicColumnCount,
-                                            columnWidth: columnWidth,
-                                            expiration: DefaultCacheExpiration.updates
-                                        )
+                Group {
+                    if !isLoggedIn {
+                        NotLoggedInView(onLogin: {
+                            showAuthView = true
+                        })
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                FollowingHorizontalList(store: store, path: $path)
+                                    .padding(.vertical, 8)
+
+                                if (store.isLoadingUpdates || !store.hasFetchedUpdates) && store.updates.isEmpty {
+                                    SkeletonIllustWaterfallGrid(
+                                        columnCount: dynamicColumnCount,
+                                        itemCount: skeletonItemCount,
+                                        width: waterfallWidth
+                                    )
+                                    .padding(.horizontal, 12)
+                                    .frame(minHeight: 400)
+                                } else if store.updates.isEmpty {
+                                    VStack(spacing: 16) {
+                                        Image(systemName: "photo.on.rectangle.angled")
+                                            .font(.largeTitle)
+                                            .foregroundColor(.gray)
+                                        Text("暂无动态")
+                                            .foregroundColor(.gray)
                                     }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.horizontal, 12)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .padding(.top, 50)
+                                } else {
+                                    WaterfallGrid(data: filteredUpdates, columnCount: dynamicColumnCount, width: waterfallWidth, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+                                        NavigationLink(value: illust) {
+                                            IllustCard(
+                                                illust: illust,
+                                                columnCount: dynamicColumnCount,
+                                                columnWidth: columnWidth,
+                                                expiration: DefaultCacheExpiration.updates
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal, 12)
 
-                                if store.nextUrlUpdates != nil {
-                                    LazyVStack {
-                                        ProgressView()
-                                            #if os(macOS)
-                                            .controlSize(.small)
-                                            #endif
-                                            .padding()
-                                            .id(store.nextUrlUpdates)
-                                            .onAppear {
-                                                Task {
-                                                    await store.loadMoreUpdates()
+                                    if store.nextUrlUpdates != nil {
+                                        LazyVStack {
+                                            ProgressView()
+                                                #if os(macOS)
+                                                .controlSize(.small)
+                                                #endif
+                                                .padding()
+                                                .id(store.nextUrlUpdates)
+                                                .onAppear {
+                                                    Task {
+                                                        await store.loadMoreUpdates()
+                                                    }
                                                 }
-                                            }
+                                        }
+                                    } else if !filteredUpdates.isEmpty {
+                                        Text(String(localized: "已经到底了"))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .padding()
                                     }
-                                } else if !filteredUpdates.isEmpty {
-                                    Text(String(localized: "已经到底了"))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .padding()
                                 }
                             }
                         }
-                    }
-                    .refreshable {
-                        let userId = accountStore.currentAccount?.userId ?? ""
-                        await store.refreshFollowing(userId: userId)
-                        await store.refreshUpdates(restrict: restrictString)
-                    }
-                    .navigationTitle("动态")
-                    .pixivNavigationDestinations()
-                    .navigationDestination(for: String.self) { _ in
-                        FollowingListView(store: FollowingListStore(), userId: accountStore.currentAccount?.userId ?? "")
-                    }
-                    .onChange(of: accountStore.navigationRequest) { _, newValue in
-                        if let request = newValue {
-                            switch request {
-                            case .userDetail(let userId):
-                                path.append(User(id: .string(userId), name: "", account: ""))
-                            case .illustDetail(let illust):
-                                path.append(illust)
-                            }
-                            accountStore.navigationRequest = nil
-                        }
-                    }
-                    .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)
-                    .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentPage)) { _ in
-                        if isLoggedIn {
+                        .refreshable {
                             let userId = accountStore.currentAccount?.userId ?? ""
-                            Task {
-                                await store.refreshFollowing(userId: userId)
-                                await store.refreshUpdates(restrict: restrictString)
+                            await store.refreshFollowing(userId: userId)
+                            await store.refreshUpdates(restrict: restrictString)
+                        }
+                        .navigationTitle("动态")
+                        .pixivNavigationDestinations()
+                        .navigationDestination(for: String.self) { _ in
+                            FollowingListView(store: FollowingListStore(), userId: accountStore.currentAccount?.userId ?? "")
+                        }
+                        .onChange(of: accountStore.navigationRequest) { _, newValue in
+                            if let request = newValue {
+                                switch request {
+                                case .userDetail(let userId):
+                                    path.append(User(id: .string(userId), name: "", account: ""))
+                                case .illustDetail(let illust):
+                                    path.append(illust)
+                                }
+                                accountStore.navigationRequest = nil
                             }
                         }
-                    }
-                    .onChange(of: accountStore.currentUserId) { _, _ in
-                        if isLoggedIn {
-                            let userId = accountStore.currentAccount?.userId ?? ""
-                            Task {
-                                await store.refreshFollowing(userId: userId)
-                                await store.refreshUpdates(restrict: restrictString)
+                        .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentPage)) { _ in
+                            if isLoggedIn {
+                                let userId = accountStore.currentAccount?.userId ?? ""
+                                Task {
+                                    await store.refreshFollowing(userId: userId)
+                                    await store.refreshUpdates(restrict: restrictString)
+                                }
+                            }
+                        }
+                        .onChange(of: accountStore.currentUserId) { _, _ in
+                            if isLoggedIn {
+                                let userId = accountStore.currentAccount?.userId ?? ""
+                                Task {
+                                    await store.refreshFollowing(userId: userId)
+                                    await store.refreshUpdates(restrict: restrictString)
+                                }
                             }
                         }
                     }

@@ -16,8 +16,6 @@ struct BookmarksPage: View {
 
     var initialRestrict: String?
 
-    @State private var dynamicColumnCount: Int = ResponsiveGrid.initialColumnCount(userSetting: UserSettingStore.shared.userSetting)
-
     private let cache = CacheManager.shared
 
     private var isCacheEnabled: Bool {
@@ -102,13 +100,19 @@ struct BookmarksPage: View {
 
     private var bookmarksContent: some View {
         GeometryReader { proxy in
+            let dynamicColumnCount = ResponsiveGrid.columnCount(for: proxy.size.width, userSetting: settingStore.userSetting)
+            let horizontalPadding: CGFloat = 24
+            let availableWidth = proxy.size.width - horizontalPadding
+            let waterfallWidth = availableWidth > 0 ? availableWidth : nil
+
             ZStack(alignment: .top) {
 ScrollView {
                         VStack(spacing: 12) {
                             if store.isLoadingBookmarks && store.bookmarks.isEmpty {
                             SkeletonIllustWaterfallGrid(
                                 columnCount: dynamicColumnCount,
-                                itemCount: skeletonItemCount
+                                itemCount: skeletonItemCount,
+                                width: waterfallWidth
                             )
                             .padding(.horizontal, 12)
                             .frame(minHeight: 400)
@@ -124,14 +128,14 @@ ScrollView {
                             .padding(.top, 50)
                         } else {
                             if isCacheEnabled && cacheFilter != .normal {
-                                WaterfallGrid(data: displayItems, columnCount: dynamicColumnCount, aspectRatio: { $0.aspectRatio }) { item, columnWidth in
-                                    bookmarkItemView(item: item, columnWidth: columnWidth)
+                                WaterfallGrid(data: displayItems, columnCount: dynamicColumnCount, width: waterfallWidth, aspectRatio: { $0.aspectRatio }) { item, columnWidth in
+                                    bookmarkItemView(item: item, columnWidth: columnWidth, columnCount: dynamicColumnCount)
                                 }
                                 .padding(.horizontal, 12)
                             } else {
-                                WaterfallGrid(data: filteredBookmarks, columnCount: dynamicColumnCount, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
+                                WaterfallGrid(data: filteredBookmarks, columnCount: dynamicColumnCount, width: waterfallWidth, aspectRatio: { $0.safeAspectRatio }) { illust, columnWidth in
                                     NavigationLink(value: illust) {
-                                        bookmarkCardView(illust: illust, columnWidth: columnWidth, isDeleted: false)
+                                        bookmarkCardView(illust: illust, columnWidth: columnWidth, columnCount: dynamicColumnCount, isDeleted: false)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -209,7 +213,6 @@ ScrollView {
                     accountStore.navigationRequest = nil
                 }
             }
-            .responsiveGridColumnCount(userSetting: settingStore.userSetting, columnCount: $dynamicColumnCount)
             .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentPage)) { _ in
                 if isLoggedIn {
                     Task {
@@ -308,23 +311,23 @@ ScrollView {
     }
 
     @ViewBuilder
-    private func bookmarkItemView(item: BookmarkDisplayItem, columnWidth: CGFloat) -> some View {
+    private func bookmarkItemView(item: BookmarkDisplayItem, columnWidth: CGFloat, columnCount: Int) -> some View {
         switch item {
         case .normal(let illust):
             NavigationLink(value: illust) {
-                bookmarkCardView(illust: illust, columnWidth: columnWidth, isDeleted: false)
+                bookmarkCardView(illust: illust, columnWidth: columnWidth, columnCount: columnCount, isDeleted: false)
             }
             .buttonStyle(.plain)
         case .deleted(let illust, let cache):
             NavigationLink(value: cache) {
-                bookmarkCardView(illust: illust, columnWidth: columnWidth, isDeleted: true, cache: cache)
+                bookmarkCardView(illust: illust, columnWidth: columnWidth, columnCount: columnCount, isDeleted: true, cache: cache)
             }
             .buttonStyle(.plain)
         }
     }
 
     @ViewBuilder
-    private func bookmarkCardView(illust: Illusts, columnWidth: CGFloat, isDeleted: Bool, cache: BookmarkCache? = nil) -> some View {
+    private func bookmarkCardView(illust: Illusts, columnWidth: CGFloat, columnCount: Int, isDeleted: Bool, cache: BookmarkCache? = nil) -> some View {
         let cacheStatus: BookmarkCacheStatus = {
             if let cache = cache ?? bookmarkCacheStore.getCacheRecord(illustId: illust.id) {
                 if cache.imagePreloaded {
@@ -338,7 +341,7 @@ ScrollView {
 
         BookmarkCard(
             illust: illust,
-            columnCount: dynamicColumnCount,
+            columnCount: columnCount,
             columnWidth: columnWidth,
             expiration: DefaultCacheExpiration.bookmarks,
             isDeleted: isDeleted,

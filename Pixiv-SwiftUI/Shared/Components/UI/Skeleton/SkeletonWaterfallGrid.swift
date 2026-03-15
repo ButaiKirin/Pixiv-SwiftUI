@@ -65,8 +65,10 @@ struct SkeletonWaterfallGrid: View {
                         .frame(width: columnWidth)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
