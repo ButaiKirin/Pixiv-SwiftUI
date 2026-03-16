@@ -1,0 +1,75 @@
+name: Update Homebrew Tap
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-homebrew-tap:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout homebrew-tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          path: homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Get release info
+        id: release
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Get asset download URLs
+          echo "Fetching asset URLs..."
+
+      - name: Download arm64 dmg and calculate SHA256
+        id: arm64
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          URL="https://github.com/Eslzzyl/Pixiv-SwiftUI/releases/download/v${VERSION}/Pixiv-SwiftUI-arm64.dmg"
+          curl -sL "$URL" -o /tmp/pixiv-swiftui-arm64.dmg
+          SHA=$(sha256sum /tmp/pixiv-swiftui-arm64.dmg | awk '{print $1}')
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Download x86_64 dmg and calculate SHA256
+        id: x86
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          URL="https://github.com/Eslzzyl/Pixiv-SwiftUI/releases/download/v${VERSION}/Pixiv-SwiftUI-x86_64.dmg"
+          curl -sL "$URL" -o /tmp/pixiv-swiftui-x86_64.dmg
+          SHA=$(sha256sum /tmp/pixiv-swiftui-x86_64.dmg | awk '{print $1}')
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Update Cask file
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          ARM64_SHA="${{ steps.arm64.outputs.sha }}"
+          X86_SHA="${{ steps.x86.outputs.sha }}"
+          ARM64_URL="${{ steps.arm64.outputs.url }}"
+          X86_URL="${{ steps.x86.outputs.url }}"
+          
+          CASK_FILE="homebrew-tap/Casks/pixiv-swiftui.rb"
+          
+          # Update version
+          sed -i '' "s/version \"[^\"]*\"/version \"${VERSION}\"/" "$CASK_FILE"
+          
+          # Update arm64 SHA256
+          sed -i '' "0,/sha256 \"[^\"]*\"$/s//sha256 \"${ARM64_SHA}\"/" "$CASK_FILE"
+          
+          # Update x86_64 SHA256 (second occurrence)
+          sed -i '' "0,/sha256 \"[^\"]*\"[^\n]*x86/s//sha256 \"${X86_SHA}\"/" "$CASK_FILE"
+          
+          cat "$CASK_FILE"
+
+      - name: Commit and push
+        run: |
+          cd homebrew-tap
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add Casks/pixiv-swiftui.rb
+          git diff --staged --quiet || git commit -m "chore: update pixiv-swiftui to ${{ github.ref_name }}"
+          git push
