@@ -231,6 +231,56 @@ struct ImageURLHelper {
     }
 }
 
+struct ImageQualityHelper {
+    static let qualityLevels: [Int] = [0, 1, 2]
+
+    static func getLowerQualityURLs(
+        from illust: Illusts,
+        targetQuality: Int,
+        isManga: Bool = false
+    ) -> [String] {
+        var urls: [String] = []
+        let lowerQualities = qualityLevels.filter { $0 < targetQuality }.sorted()
+
+        for quality in lowerQualities {
+            let url = ImageURLHelper.getImageURL(from: illust, quality: quality, isPicture: !isManga)
+            if !url.isEmpty {
+                urls.append(url)
+            }
+        }
+
+        return urls
+    }
+
+    static func getLowerQualityPageURLs(
+        from illust: Illusts,
+        targetQuality: Int,
+        page: Int
+    ) -> [String] {
+        var urls: [String] = []
+        let lowerQualities = qualityLevels.filter { $0 < targetQuality }.sorted()
+
+        for quality in lowerQualities {
+            if let url = ImageURLHelper.getPageImageURL(from: illust, page: page, quality: quality) {
+                urls.append(url)
+            }
+        }
+
+        return urls
+    }
+
+    static func getAllQualityURLs(from illust: Illusts, isManga: Bool = false) -> [Int: String] {
+        var urls: [Int: String] = [:]
+        for quality in qualityLevels {
+            let url = ImageURLHelper.getImageURL(from: illust, quality: quality, isPicture: !isManga)
+            if !url.isEmpty {
+                urls[quality] = url
+            }
+        }
+        return urls
+    }
+}
+
 /// 日期格式化工具
 struct DateFormatterHelper {
     static func formatDate(_ date: String) -> String {

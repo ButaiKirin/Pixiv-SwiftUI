@@ -91,8 +91,13 @@ struct IllustDetailImageSection: View {
     }
 
     private var standardImageSection: some View {
-        CachedAsyncImage(
-            urlString: ImageURLHelper.getImageURL(from: illust, quality: userSettingStore.userSetting.pictureQuality),
+        let quality = userSettingStore.userSetting.pictureQuality
+        let targetURL = ImageURLHelper.getImageURL(from: illust, quality: quality)
+        let fallbackURLs = ImageQualityHelper.getLowerQualityURLs(from: illust, targetQuality: quality)
+
+        return ProgressiveCachedAsyncImage(
+            targetURL: targetURL,
+            fallbackURLs: fallbackURLs,
             aspectRatio: illust.safeAspectRatio,
             contentMode: .fit,
             expiration: DefaultCacheExpiration.illustDetail
@@ -105,7 +110,7 @@ struct IllustDetailImageSection: View {
             ZStack {
             #if os(macOS)
             if imageURLs.indices.contains(currentPage) {
-                pageImage(url: imageURLs[currentPage], index: currentPage, containerHeight: containerHeight)
+                pageImage(page: currentPage, containerHeight: containerHeight)
                     .frame(width: containerWidth)
                     .id(currentPage)
             }
@@ -114,7 +119,7 @@ struct IllustDetailImageSection: View {
                 ForEach(0..<imageURLs.count, id: \.self) { index in
                     ZStack {
                         if abs(index - currentPage) <= 2 {
-                            pageImage(url: imageURLs[index], index: index, containerHeight: nil)
+                            pageImage(page: index, containerHeight: nil)
                         } else {
                             Color.clear
                         }
@@ -158,21 +163,23 @@ struct IllustDetailImageSection: View {
         }
     }
 
-    private func pageImage(url: String, index: Int, containerHeight: CGFloat?) -> some View {
-        DynamicSizeCachedAsyncImage(
-            urlString: url,
-            placeholder: nil,
-            aspectRatio: aspectRatioForPage(index),
-            contentMode: .fit,
+    private func pageImage(page: Int, containerHeight: CGFloat?) -> some View {
+        let quality = isManga ? userSettingStore.userSetting.mangaQuality : userSettingStore.userSetting.pictureQuality
+
+        return ProgressiveMultiPageAsyncImage(
+            illust: illust,
+            targetQuality: quality,
+            currentPage: page,
+            aspectRatio: aspectRatioForPage(page),
+            expiration: DefaultCacheExpiration.illustDetail,
             onSizeChange: { size in
-                handleSizeChange(size: size, for: index)
-            },
-            expiration: DefaultCacheExpiration.illustDetail
+                handleSizeChange(size: size, for: page)
+            }
         )
         .frame(height: containerHeight)
         .onTapGesture {
             #if os(macOS)
-            openImageViewerWindow(initialPage: index)
+            openImageViewerWindow(initialPage: page)
             #else
             withAnimation(.spring()) {
                 isFullscreen = true
