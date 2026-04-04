@@ -45,7 +45,7 @@ struct NovelReaderContent: Codable {
         seriesIsWatched = try container.decodeIfPresent(Bool.self, forKey: .seriesIsWatched)
         isBookmarked = try container.decodeIfPresent(Bool.self, forKey: .isBookmarked)
         illusts = try container.decodeIfPresent([NovelIllustData].self, forKey: .illusts)
-        images = try container.decodeIfPresent([NovelUploadedImage].self, forKey: .images)
+        images = try Self.decodeUploadedImages(container: container)
         seriesNavigation = try container.decodeIfPresent(SeriesNavigation.self, forKey: .seriesNavigation)
 
         id = try Self.decodeIntFromStringOrInt(container: container, key: .id)
@@ -111,6 +111,22 @@ struct NovelReaderContent: Codable {
         } else {
             return nil
         }
+    }
+
+    static func decodeUploadedImages(container: KeyedDecodingContainer<CodingKeys>) throws -> [NovelUploadedImage]? {
+        guard container.contains(.images) else {
+            return nil
+        }
+
+        if let mappedImages = try? container.decodeIfPresent([String: NovelUploadedImagePayload].self, forKey: .images) {
+            return mappedImages
+                .map { entry in
+                    NovelUploadedImage(id: entry.key, urls: entry.value.urls)
+                }
+                .sorted { ($0.id ?? "") < ($1.id ?? "") }
+        }
+
+        return try container.decodeIfPresent([NovelUploadedImage].self, forKey: .images)
     }
 }
 
@@ -220,8 +236,27 @@ struct NovelIllustData: Codable {
     let illust: IllustMini
 }
 
-struct NovelUploadedImage: Codable {
+private struct NovelUploadedImagePayload: Codable {
     let urls: NovelImageUrls
+}
+
+struct NovelUploadedImage: Codable {
+    let id: String?
+    let urls: NovelImageUrls
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case urls
+    }
+
+    init(id: String? = nil, urls: NovelImageUrls) {
+        self.id = id
+        self.urls = urls
+    }
+
+    var preferredDisplayURL: String? {
+        urls.the1200X1200 ?? urls.original ?? urls.the128X128
+    }
 }
 
 struct NovelImageUrls: Codable {
@@ -233,6 +268,19 @@ struct NovelImageUrls: Codable {
         case the128X128 = "128x128"
         case the1200X1200 = "1200x1200"
         case original
+    }
+}
+
+extension Collection where Element == NovelUploadedImage {
+    func uploadedImage(matchingKey key: String) -> NovelUploadedImage? {
+        let normalizedKey = key
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+
+        return first(where: { $0.id == normalizedKey })
+            ?? first(where: { $0.id == key })
+            ?? first(where: { $0.urls.original?.contains(normalizedKey) ?? false })
+            ?? first(where: { $0.urls.original?.contains(key) ?? false })
     }
 }
 

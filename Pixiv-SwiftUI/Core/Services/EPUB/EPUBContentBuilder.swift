@@ -231,10 +231,10 @@ struct EPUBContentBuilder {
                     guard !processedUploads.contains(imageKey) else { continue }
                     processedUploads.insert(imageKey)
 
-                    if let uploadedImage = content.images?.first(where: { $0.urls.original?.contains(imageKey) ?? false }) {
+                    if let uploadedImage = content.images?.uploadedImage(matchingKey: imageKey) {
                         let imageFileName = "upload-\(imageKey).jpg"
 
-                        if let imageUrl = uploadedImage.urls.the1200X1200 ?? uploadedImage.urls.original {
+                        if let imageUrl = uploadedImage.preferredDisplayURL {
                             do {
                                 let imageData = try await downloadImageData(from: imageUrl)
                                 let image = EPUBImage(

@@ -139,11 +139,14 @@ final class NovelTextParser {
             let parts = inner.split(separator: "-", maxSplits: 1)
             guard let illustId = Int(parts[0]) else { return nil }
             let targetIndex = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
+            let imageUrl = illusts?
+                .first(where: { $0.illust.id == illustId })
+                .flatMap { previewURL(for: $0.illust.imageUrls) } ?? ""
 
             let metadata: [String: Any] = [
                 "illustId": illustId,
                 "targetIndex": targetIndex,
-                "imageUrl": ""
+                "imageUrl": imageUrl
             ]
 
             return NovelSpan(
@@ -155,11 +158,12 @@ final class NovelTextParser {
         }
 
         if tag.hasPrefix("[uploadedimage:") && tag.hasSuffix("]") {
-            let imageKey = String(tag.dropFirst(14).dropLast())
+            let imageKey = normalizeUploadedImageKey(String(tag.dropFirst(15).dropLast()))
+            let imageUrl = images?.uploadedImage(matchingKey: imageKey)?.preferredDisplayURL ?? ""
 
             let metadata: [String: Any] = [
                 "imageKey": imageKey,
-                "imageUrl": ""
+                "imageUrl": imageUrl
             ]
 
             return NovelSpan(
@@ -207,6 +211,15 @@ final class NovelTextParser {
         }
 
         return nil
+    }
+
+    private func normalizeUploadedImageKey(_ key: String) -> String {
+        key.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+    }
+
+    private func previewURL(for imageUrls: ImageUrls) -> String? {
+        [imageUrls.large, imageUrls.medium, imageUrls.squareMedium].first(where: { !$0.isEmpty })
     }
 
     func cleanHTML(_ html: String) -> String {
