@@ -133,6 +133,7 @@ final class NovelReaderStore {
             let cleanedText = NovelTextParser.shared.cleanHTML(fetchedContent.text)
             spans = NovelTextParser.shared.parse(cleanedText, illusts: fetchedContent.illusts, images: fetchedContent.images)
             print("[NovelReaderStore] Parsed into \(spans.count) spans")
+            logImageDiagnostics(content: fetchedContent, spans: spans)
 
             isLoading = false
 
@@ -147,6 +148,70 @@ final class NovelReaderStore {
             print("[NovelReaderStore] Fetch failed: \(error)")
             errorMessage = error.localizedDescription
             isLoading = false
+        }
+    }
+
+    private func logImageDiagnostics(content: NovelReaderContent, spans: [NovelSpan]) {
+        let uploadedAssets = content.images ?? []
+        let illustAssets = content.illusts ?? []
+        let uploadedSpans = spans.filter { $0.type == .uploadedImage }
+        let pixivSpans = spans.filter { $0.type == .pixivImage }
+        let resolvedUploadedSpans = uploadedSpans.filter { span in
+            let imageURL = span.metadata?["imageUrl"] as? String ?? ""
+            return !imageURL.isEmpty
+        }
+        let resolvedPixivSpans = pixivSpans.filter { span in
+            let imageURL = span.metadata?["imageUrl"] as? String ?? ""
+            return !imageURL.isEmpty
+        }
+
+        print(
+            "[NovelReaderStore] Image diagnostics: uploadedAssets=\(uploadedAssets.count), illustAssets=\(illustAssets.count), uploadedSpans=\(uploadedSpans.count), resolvedUploadedSpans=\(resolvedUploadedSpans.count), pixivSpans=\(pixivSpans.count), resolvedPixivSpans=\(resolvedPixivSpans.count)"
+        )
+
+        for image in uploadedAssets.prefix(5) {
+            let preferredURL = image.preferredDisplayURL ?? "nil"
+            let host = URL(string: preferredURL)?.host ?? "nil"
+            print(
+                "[NovelReaderStore] Uploaded asset: id=\(image.id ?? "nil"), host=\(host), preferredURL=\(preferredURL)"
+            )
+        }
+
+        for illust in illustAssets.prefix(5) {
+            let previewURL = [illust.illust.imageUrls.large, illust.illust.imageUrls.medium, illust.illust.imageUrls.squareMedium]
+                .first(where: { !$0.isEmpty }) ?? "nil"
+            let host = URL(string: previewURL)?.host ?? "nil"
+            print(
+                "[NovelReaderStore] Pixiv asset: illustId=\(illust.illust.id), host=\(host), previewURL=\(previewURL)"
+            )
+        }
+
+        for span in uploadedSpans.prefix(5) {
+            let imageKey = span.metadata?["imageKey"] as? String ?? "nil"
+            let imageURL = span.metadata?["imageUrl"] as? String ?? "nil"
+            let host = URL(string: imageURL)?.host ?? "nil"
+            print(
+                "[NovelReaderStore] Uploaded span: spanId=\(span.id), imageKey=\(imageKey), host=\(host), imageURL=\(imageURL)"
+            )
+        }
+
+        let unresolvedUploadedKeys = uploadedSpans.prefix(20).compactMap { span -> String? in
+            let imageURL = span.metadata?["imageUrl"] as? String ?? ""
+            guard imageURL.isEmpty else { return nil }
+            return span.metadata?["imageKey"] as? String
+        }
+        if !unresolvedUploadedKeys.isEmpty {
+            print("[NovelReaderStore] Uploaded spans unresolved keys: \(unresolvedUploadedKeys.joined(separator: ", "))")
+        }
+
+        for span in pixivSpans.prefix(5) {
+            let illustId = span.metadata?["illustId"] as? Int ?? -1
+            let targetIndex = span.metadata?["targetIndex"] as? Int ?? -1
+            let imageURL = span.metadata?["imageUrl"] as? String ?? "nil"
+            let host = URL(string: imageURL)?.host ?? "nil"
+            print(
+                "[NovelReaderStore] Pixiv span: spanId=\(span.id), illustId=\(illustId), targetIndex=\(targetIndex), host=\(host), imageURL=\(imageURL)"
+            )
         }
     }
 

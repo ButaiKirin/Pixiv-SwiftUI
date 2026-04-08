@@ -90,12 +90,14 @@ struct NovelSpanRenderer: View {
         Group {
             if let metadata = span.metadata,
                let illustId = metadata["illustId"] as? Int,
-               let imageUrl = metadata["imageUrl"] as? String {
+               let imageUrl = metadata["imageUrl"] as? String,
+               !imageUrl.isEmpty,
+               let imageURL = URL(string: imageUrl) {
                 VStack(spacing: 8) {
-                    KFImage(URL(string: imageUrl))
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .cornerRadius(8)
+                    novelImageView(
+                        imageURL: imageURL,
+                        logContext: "pixivImage spanId=\(span.id) illustId=\(illustId)"
+                    )
                         .onTapGesture {
                             onImageTap(illustId)
                         }
@@ -118,11 +120,14 @@ struct NovelSpanRenderer: View {
     private var uploadedImageView: some View {
         Group {
             if let metadata = span.metadata,
-               let imageUrl = metadata["imageUrl"] as? String {
-                KFImage(URL(string: imageUrl))
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .cornerRadius(8)
+               let imageKey = metadata["imageKey"] as? String,
+               let imageUrl = metadata["imageUrl"] as? String,
+               !imageUrl.isEmpty,
+               let imageURL = URL(string: imageUrl) {
+                novelImageView(
+                    imageURL: imageURL,
+                    logContext: "uploadedImage spanId=\(span.id) imageKey=\(imageKey)"
+                )
                     .padding(.vertical, 8)
             } else {
                 Text("[图片加载失败]")
@@ -132,6 +137,63 @@ struct NovelSpanRenderer: View {
             }
         }
         .eraseToAnyView()
+    }
+
+    @ViewBuilder
+    private func novelImageView(imageURL: URL, logContext: String) -> some View {
+        if shouldUseDirectConnection(url: imageURL) {
+            KFImage.source(.directNetwork(imageURL))
+                .onSuccess { result in
+                    print(
+                        "[NovelSpanRenderer] \(logContext) 加载成功: url=\(imageURL.absoluteString), cache=\(result.cacheType), size=\(Int(result.image.size.width))x\(Int(result.image.size.height))"
+                    )
+                }
+                .onFailure { error in
+                    print("[NovelSpanRenderer] \(logContext) 加载失败: url=\(imageURL.absoluteString), error=\(error)")
+                }
+                .placeholder {
+                    ProgressView()
+                }
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .cornerRadius(8)
+                .onAppear {
+                    logImageLoadStart(imageURL: imageURL, logContext: logContext, directConnection: true)
+                }
+        } else {
+            KFImage(imageURL)
+                .requestModifier(PixivImageLoader.shared)
+                .onSuccess { result in
+                    print(
+                        "[NovelSpanRenderer] \(logContext) 加载成功: url=\(imageURL.absoluteString), cache=\(result.cacheType), size=\(Int(result.image.size.width))x\(Int(result.image.size.height))"
+                    )
+                }
+                .onFailure { error in
+                    print("[NovelSpanRenderer] \(logContext) 加载失败: url=\(imageURL.absoluteString), error=\(error)")
+                }
+                .placeholder {
+                    ProgressView()
+                }
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .cornerRadius(8)
+                .onAppear {
+                    logImageLoadStart(imageURL: imageURL, logContext: logContext, directConnection: false)
+                }
+        }
+    }
+
+    private func shouldUseDirectConnection(url: URL) -> Bool {
+        guard let host = url.host else { return false }
+        return NetworkModeStore.shared.useDirectConnection &&
+            (host.contains("i.pximg.net") || host.contains("img-master.pixiv.net"))
+    }
+
+    private func logImageLoadStart(imageURL: URL, logContext: String, directConnection: Bool) {
+        let host = imageURL.host ?? "nil"
+        print(
+            "[NovelSpanRenderer] \(logContext) 开始加载: url=\(imageURL.absoluteString), host=\(host), direct=\(directConnection)"
+        )
     }
 
     private var jumpUriView: some View {
