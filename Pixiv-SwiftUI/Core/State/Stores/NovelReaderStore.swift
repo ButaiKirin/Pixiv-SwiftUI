@@ -13,6 +13,7 @@ final class NovelReaderStore {
     let novelId: Int
 
     var content: NovelReaderContent?
+    var resolvedSeriesNavigation: SeriesNavigation?
     var spans: [NovelSpan] = []
     var isLoading = false
     var errorMessage: String?
@@ -61,7 +62,11 @@ final class NovelReaderStore {
     }
 
     var seriesNavigation: SeriesNavigation? {
-        content?.seriesNavigation
+        resolvedSeriesNavigation
+    }
+
+    var hasSeriesNavigation: Bool {
+        resolvedSeriesNavigation?.hasAdjacentNovel == true
     }
 
     init(novelId: Int) {
@@ -123,12 +128,14 @@ final class NovelReaderStore {
         print("[NovelReaderStore] Fetching content for novelId=\(novelId)")
         isLoading = true
         errorMessage = nil
+        resolvedSeriesNavigation = nil
 
         do {
             let fetchedContent = try await PixivAPI.shared.getNovelContent(novelId: novelId)
             print("[NovelReaderStore] Fetched content, text length=\(fetchedContent.text.count)")
             content = fetchedContent
             isBookmarked = fetchedContent.isBookmarked ?? false
+            resolvedSeriesNavigation = await resolveSeriesNavigation(for: fetchedContent)
 
             let cleanedText = NovelTextParser.shared.cleanHTML(fetchedContent.text)
             spans = NovelTextParser.shared.parse(cleanedText, illusts: fetchedContent.illusts, images: fetchedContent.images)
@@ -147,8 +154,99 @@ final class NovelReaderStore {
         } catch {
             print("[NovelReaderStore] Fetch failed: \(error)")
             errorMessage = error.localizedDescription
+            resolvedSeriesNavigation = nil
             isLoading = false
         }
+    }
+
+    private func resolveSeriesNavigation(for content: NovelReaderContent) async -> SeriesNavigation? {
+        if let navigation = content.seriesNavigation, navigation.hasAdjacentNovel {
+            print("[NovelReaderStore] Series navigation source: content")
+            return navigation
+        }
+
+        guard let seriesId = content.seriesId else {
+            return nil
+        }
+
+        if let navigation = await fetchSeriesNavigationFromSeries(seriesId: seriesId) {
+            print("[NovelReaderStore] Series navigation source: series fallback")
+            return navigation
+        }
+
+        return nil
+    }
+
+    private func fetchSeriesNavigationFromSeries(seriesId: Int) async -> SeriesNavigation? {
+        guard let novelAPI = PixivAPI.shared.novelAPI else {
+            return nil
+        }
+
+        do {
+            var novels: [Novel] = []
+            var visitedNextURLs = Set<String>()
+
+            let firstResponse = try await novelAPI.getNovelSeries(seriesId: seriesId)
+            novels.append(contentsOf: firstResponse.novels)
+
+            var nextURL = firstResponse.nextUrl
+
+            while true {
+                if let navigation = buildSeriesNavigationIfPossible(from: novels, nextURL: nextURL) {
+                    return navigation
+                }
+
+                guard let nextPageURL = nextURL, visitedNextURLs.insert(nextPageURL).inserted else {
+                    break
+                }
+
+                let response = try await novelAPI.getNovelSeriesByURL(nextPageURL)
+                novels.append(contentsOf: response.novels)
+                nextURL = response.nextUrl
+            }
+
+            return buildSeriesNavigationIfPossible(from: novels, nextURL: nil)
+        } catch {
+            print("[NovelReaderStore] Failed to resolve series navigation from series: \(error)")
+            return nil
+        }
+    }
+
+    private func buildSeriesNavigationIfPossible(from novels: [Novel], nextURL: String?) -> SeriesNavigation? {
+        guard let currentIndex = novels.firstIndex(where: { $0.id == novelId }) else {
+            return nil
+        }
+
+        if currentIndex == novels.count - 1 && nextURL != nil {
+            return nil
+        }
+
+        return buildSeriesNavigation(from: novels, currentIndex: currentIndex)
+    }
+
+    private func buildSeriesNavigation(from novels: [Novel], currentIndex: Int) -> SeriesNavigation? {
+        guard currentIndex >= 0, currentIndex < novels.count else {
+            return nil
+        }
+
+        let prevNovel: PrevNextNovel?
+        if currentIndex > 0 {
+            let novel = novels[currentIndex - 1]
+            prevNovel = PrevNextNovel(id: novel.id, title: novel.title)
+        } else {
+            prevNovel = nil
+        }
+
+        let nextNovel: PrevNextNovel?
+        if currentIndex + 1 < novels.count {
+            let novel = novels[currentIndex + 1]
+            nextNovel = PrevNextNovel(id: novel.id, title: novel.title)
+        } else {
+            nextNovel = nil
+        }
+
+        let navigation = SeriesNavigation(prevNovel: prevNovel, nextNovel: nextNovel)
+        return navigation.hasAdjacentNovel ? navigation : nil
     }
 
     private func logImageDiagnostics(content: NovelReaderContent, spans: [NovelSpan]) {

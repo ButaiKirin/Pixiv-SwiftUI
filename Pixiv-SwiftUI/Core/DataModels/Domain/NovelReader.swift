@@ -30,6 +30,10 @@ struct NovelReaderContent: Codable {
         case novelAIType = "aiType"
     }
 
+    private enum FallbackCodingKeys: String, CodingKey {
+        case seriesNavigation = "series_navigation"
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         title = try container.decode(String.self, forKey: .title)
@@ -46,7 +50,7 @@ struct NovelReaderContent: Codable {
         isBookmarked = try container.decodeIfPresent(Bool.self, forKey: .isBookmarked)
         illusts = try container.decodeIfPresent([NovelIllustData].self, forKey: .illusts)
         images = try Self.decodeUploadedImages(container: container)
-        seriesNavigation = try container.decodeIfPresent(SeriesNavigation.self, forKey: .seriesNavigation)
+        seriesNavigation = try Self.decodeSeriesNavigation(container: container, decoder: decoder)
 
         id = try Self.decodeIntFromStringOrInt(container: container, key: .id)
         seriesId = try Self.decodeOptionalIntFromStringOrInt(container: container, key: .seriesId)
@@ -127,6 +131,18 @@ struct NovelReaderContent: Codable {
         }
 
         return try container.decodeIfPresent([NovelUploadedImage].self, forKey: .images)
+    }
+
+    static func decodeSeriesNavigation(
+        container: KeyedDecodingContainer<CodingKeys>,
+        decoder: Decoder
+    ) throws -> SeriesNavigation? {
+        if let navigation = try container.decodeIfPresent(SeriesNavigation.self, forKey: .seriesNavigation) {
+            return navigation
+        }
+
+        let fallbackContainer = try decoder.container(keyedBy: FallbackCodingKeys.self)
+        return try fallbackContainer.decodeIfPresent(SeriesNavigation.self, forKey: .seriesNavigation)
     }
 }
 
@@ -292,6 +308,30 @@ struct SeriesNavigation: Codable {
         case prevNovel = "prev_novel"
         case nextNovel = "next_novel"
     }
+
+    private enum FlexibleCodingKeys: String, CodingKey {
+        case prevNovel
+        case prevNovelSnake = "prev_novel"
+        case nextNovel
+        case nextNovelSnake = "next_novel"
+    }
+
+    init(prevNovel: PrevNextNovel? = nil, nextNovel: PrevNextNovel? = nil) {
+        self.prevNovel = prevNovel
+        self.nextNovel = nextNovel
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: FlexibleCodingKeys.self)
+        prevNovel = try container.decodeIfPresent(PrevNextNovel.self, forKey: .prevNovel)
+            ?? container.decodeIfPresent(PrevNextNovel.self, forKey: .prevNovelSnake)
+        nextNovel = try container.decodeIfPresent(PrevNextNovel.self, forKey: .nextNovel)
+            ?? container.decodeIfPresent(PrevNextNovel.self, forKey: .nextNovelSnake)
+    }
+
+    var hasAdjacentNovel: Bool {
+        prevNovel != nil || nextNovel != nil
+    }
 }
 
 struct PrevNextNovel: Codable {
@@ -305,10 +345,22 @@ struct PrevNextNovel: Codable {
         case order
     }
 
+    init(id: Int, title: String, order: Int? = nil) {
+        self.id = id
+        self.title = title
+        self.order = order
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         title = try container.decode(String.self, forKey: .title)
-        order = try container.decodeIfPresent(Int.self, forKey: .order)
+        if let intValue = try? container.decodeIfPresent(Int.self, forKey: .order) {
+            order = intValue
+        } else if let stringValue = try? container.decodeIfPresent(String.self, forKey: .order) {
+            order = Int(stringValue)
+        } else {
+            order = nil
+        }
 
         if let intValue = try? container.decode(Int.self, forKey: .id) {
             id = intValue

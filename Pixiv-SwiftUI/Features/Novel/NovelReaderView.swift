@@ -65,7 +65,7 @@ struct NovelReaderView: View {
                     }
                     #endif
 
-                    if store.seriesNavigation?.prevNovel != nil || store.seriesNavigation?.nextNovel != nil {
+                    if store.hasSeriesNavigation {
                         Divider()
 
                         Button(action: { showSeriesNavigation = true }) {
@@ -110,7 +110,14 @@ struct NovelReaderView: View {
         }
         #endif
         .sheet(isPresented: $showSeriesNavigation) {
-            SeriesNavigationView(store: store)
+            if let navigation = store.seriesNavigation {
+                SeriesNavigationView(navigation: navigation) { selectedNovelId in
+                    showSeriesNavigation = false
+                    DispatchQueue.main.async {
+                        openSeriesNovel(selectedNovelId)
+                    }
+                }
+            }
         }
         .navigationDestination(item: $navigateToNovel) { novelId in
             NovelReaderView(novelId: novelId)
@@ -209,10 +216,12 @@ struct NovelReaderView: View {
 
                         contentSection
 
-                        Divider()
-                            .padding(.vertical, 20)
+                        if store.hasSeriesNavigation {
+                            Divider()
+                                .padding(.vertical, 20)
 
-                        seriesNavigationSection
+                            seriesNavigationSection
+                        }
 
                         Spacer(minLength: 100)
                     }
@@ -302,53 +311,60 @@ struct NovelReaderView: View {
         }
     }
 
+    @ViewBuilder
     private var seriesNavigationSection: some View {
-        VStack(spacing: 12) {
-            if let prev = store.seriesNavigation?.prevNovel {
-                Button(action: {
-                    navigateToNovel = prev.id
-                }) {
-                    HStack {
-                        Image(systemName: "chevron.left")
-                        VStack(alignment: .leading) {
-                            Text("上一章")
-                                .font(.caption)
-                            Text(prev.title)
+        if let navigation = store.seriesNavigation, navigation.hasAdjacentNovel {
+            VStack(spacing: 12) {
+                if let prev = navigation.prevNovel {
+                    Button(action: {
+                        openSeriesNovel(prev.id)
+                    }) {
+                        HStack {
+                            Image(systemName: "chevron.left")
+                            VStack(alignment: .leading) {
+                                Text("上一章")
+                                    .font(.caption)
+                                Text(prev.title)
+                                    .font(.subheadline)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if let next = navigation.nextNovel {
+                    Button(action: {
+                        openSeriesNovel(next.id)
+                    }) {
+                        HStack {
+                            Spacer()
+                            Text(next.title)
                                 .font(.subheadline)
                                 .lineLimit(1)
+                            VStack(alignment: .trailing) {
+                                Text("下一章")
+                                    .font(.caption)
+                                Image(systemName: "chevron.right")
+                            }
                         }
-                        Spacer()
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(8)
                     }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
-
-            if let next = store.seriesNavigation?.nextNovel {
-                Button(action: {
-                    navigateToNovel = next.id
-                }) {
-                    HStack {
-                        Spacer()
-                        Text(next.title)
-                            .font(.subheadline)
-                            .lineLimit(1)
-                        VStack(alignment: .trailing) {
-                            Text("下一章")
-                                .font(.caption)
-                            Image(systemName: "chevron.right")
-                        }
-                    }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-            }
+            .padding(.top, 20)
         }
-        .padding(.top, 20)
+    }
+
+    private func openSeriesNovel(_ novelId: Int) {
+        navigateToNovel = novelId
     }
 
     private func openExternalLink(_ url: String) {
@@ -360,16 +376,17 @@ struct NovelReaderView: View {
 }
 
 struct SeriesNavigationView: View {
-    @Bindable var store: NovelReaderStore
+    let navigation: SeriesNavigation
+    let onSelectNovel: (Int) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
-                if let prev = store.seriesNavigation?.prevNovel {
+                if let prev = navigation.prevNovel {
                     Section("上一章") {
                         Button(action: {
-                            dismiss()
+                            selectNovel(prev.id)
                         }) {
                             HStack {
                                 Image(systemName: "chevron.left")
@@ -380,10 +397,10 @@ struct SeriesNavigationView: View {
                     }
                 }
 
-                if let next = store.seriesNavigation?.nextNovel {
+                if let next = navigation.nextNovel {
                     Section("下一章") {
                         Button(action: {
-                            dismiss()
+                            selectNovel(next.id)
                         }) {
                             HStack {
                                 Text(next.title)
@@ -405,6 +422,13 @@ struct SeriesNavigationView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func selectNovel(_ novelId: Int) {
+        dismiss()
+        DispatchQueue.main.async {
+            onSelectNovel(novelId)
         }
     }
 }
