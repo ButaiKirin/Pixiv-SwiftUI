@@ -4,3 +4,6 @@
 [submodule "pixivpy"]
 	path = pixivpy
 	url = https://github.com/upbit/pixivpy.git
+[submodule "pixez-flutter"]
+	path = pixez-flutter
+	url = https://github.com/Notsfsssf/pixez-flutter.git
