@@ -24,7 +24,7 @@ struct MainSplitView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $selectedItem) {
                 Section("浏览") {
-                    ForEach([NavigationItem.recommend, NavigationItem.updates, NavigationItem.bookmarks, NavigationItem.novel] as [NavigationItem]) { item in
+                    ForEach([NavigationItem.recommend, NavigationItem.ranking, NavigationItem.updates, NavigationItem.bookmarks, NavigationItem.novel] as [NavigationItem]) { item in
                         NavigationLink(value: item) {
                             Label(item.title, systemImage: item.icon)
                         }

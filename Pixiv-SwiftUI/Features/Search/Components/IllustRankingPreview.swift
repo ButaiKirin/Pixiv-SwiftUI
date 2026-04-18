@@ -5,7 +5,7 @@ struct IllustRankingPreview: View {
     private let accountStore = AccountStore.shared
 
     private var illusts: [Illusts] {
-        store.dailyRankingIllusts
+        store.illusts(for: .day)
     }
 
     private var isGuestMode: Bool {
@@ -217,6 +217,46 @@ enum IllustRankingType: Hashable, Identifiable {
     case dailyFemale
     case week
     case month
+    case weekOriginal
+    case weekRookie
+    case dayAI
+    case dayR18AI
+    case dayR18
+    case weekR18
+    case weekR18G
+
+    static var defaultTypes: [IllustRankingType] {
+        [.daily, .dailyMale, .dailyFemale, .week, .month]
+    }
+
+    init?(mode: IllustRankingMode) {
+        switch mode {
+        case .day:
+            self = .daily
+        case .dayMale:
+            self = .dailyMale
+        case .dayFemale:
+            self = .dailyFemale
+        case .week:
+            self = .week
+        case .month:
+            self = .month
+        case .weekOriginal:
+            self = .weekOriginal
+        case .weekRookie:
+            self = .weekRookie
+        case .dayAI:
+            self = .dayAI
+        case .dayR18AI:
+            self = .dayR18AI
+        case .dayR18:
+            self = .dayR18
+        case .weekR18:
+            self = .weekR18
+        case .weekR18G:
+            self = .weekR18G
+        }
+    }
 
     var id: String {
         switch self {
@@ -225,6 +265,13 @@ enum IllustRankingType: Hashable, Identifiable {
         case .dailyFemale: return "dailyFemale"
         case .week: return "week"
         case .month: return "month"
+        case .weekOriginal: return "weekOriginal"
+        case .weekRookie: return "weekRookie"
+        case .dayAI: return "dayAI"
+        case .dayR18AI: return "dayR18AI"
+        case .dayR18: return "dayR18"
+        case .weekR18: return "weekR18"
+        case .weekR18G: return "weekR18G"
         }
     }
 
@@ -235,6 +282,13 @@ enum IllustRankingType: Hashable, Identifiable {
         case .dailyFemale: return "女性向"
         case .week: return "每周"
         case .month: return "每月"
+        case .weekOriginal: return "原创"
+        case .weekRookie: return "新人"
+        case .dayAI: return "AI"
+        case .dayR18AI: return "XVIII_AI"
+        case .dayR18: return "XVIII"
+        case .weekR18: return "XVIII_WEEK"
+        case .weekR18G: return "XVIII_G"
         }
     }
 
@@ -245,6 +299,13 @@ enum IllustRankingType: Hashable, Identifiable {
         case .dailyFemale: return .dayFemale
         case .week: return .week
         case .month: return .month
+        case .weekOriginal: return .weekOriginal
+        case .weekRookie: return .weekRookie
+        case .dayAI: return .dayAI
+        case .dayR18AI: return .dayR18AI
+        case .dayR18: return .dayR18
+        case .weekR18: return .weekR18
+        case .weekR18G: return .weekR18G
         }
     }
 }

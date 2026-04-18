@@ -2,6 +2,7 @@ import SwiftUI
 
 enum NavigationItem: String, CaseIterable, Identifiable, Hashable {
     case recommend
+    case ranking
     case updates
     case bookmarks
     case search
@@ -15,6 +16,7 @@ enum NavigationItem: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .recommend: return String(localized: "推荐")
+        case .ranking: return String(localized: "排行")
         case .updates: return String(localized: "动态")
         case .bookmarks: return String(localized: "收藏")
         case .search: return String(localized: "搜索")
@@ -27,6 +29,7 @@ enum NavigationItem: String, CaseIterable, Identifiable, Hashable {
     var icon: String {
         switch self {
         case .recommend: return "house"
+        case .ranking: return "trophy"
         case .updates: return "person.2"
         case .bookmarks: return "heart"
         case .search: return "magnifyingglass"
@@ -41,6 +44,11 @@ enum NavigationItem: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .recommend:
             RecommendView()
+        case .ranking:
+            NavigationStack {
+                IllustRankingPage()
+                    .pixivNavigationDestinations()
+            }
         case .updates:
             UpdatesPage()
         case .bookmarks:
@@ -63,11 +71,11 @@ enum NavigationItem: String, CaseIterable, Identifiable, Hashable {
     }
 
     static var mainItems: [NavigationItem] {
-        [.recommend, .updates, .bookmarks, .search, .novel]
+        [.recommend, .ranking, .updates, .bookmarks, .search, .novel]
     }
 
     static var mainItemsForLegacy: [NavigationItem] {
-        [.recommend, .updates, .bookmarks, .novel, .search]
+        [.recommend, .ranking, .updates, .bookmarks, .novel, .search]
     }
 
     static var secondaryItems: [NavigationItem] {

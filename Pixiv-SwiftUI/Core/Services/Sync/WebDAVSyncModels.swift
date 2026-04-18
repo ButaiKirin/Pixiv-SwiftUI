@@ -111,6 +111,10 @@ struct WebDAVSyncSafeSettingsPayload: Codable, Sendable {
     let aiDisplayMode: Int
     let r18DisplayMode: Int
     let r18gDisplayMode: Int
+    let showXVIIIRankingGroups: Bool?
+    let enabledHiddenIllustRankingModes: [String]?
+    let enabledIllustRankingModes: [String]?
+    let illustRankingModeOrder: [String]?
     let spoilerDisplayMode: Int
     let blurAppPreviewInBackground: Bool?
     let autoPlayUgoira: Bool
@@ -151,6 +155,10 @@ struct WebDAVSyncSafeSettingsPayload: Codable, Sendable {
         self.aiDisplayMode = setting.aiDisplayMode
         self.r18DisplayMode = setting.r18DisplayMode
         self.r18gDisplayMode = setting.r18gDisplayMode
+        self.showXVIIIRankingGroups = setting.showXVIIIRankingGroups
+        self.enabledHiddenIllustRankingModes = setting.enabledHiddenIllustRankingModes
+        self.enabledIllustRankingModes = setting.enabledIllustRankingModes
+        self.illustRankingModeOrder = setting.illustRankingModeOrder
         self.spoilerDisplayMode = setting.spoilerDisplayMode
         self.blurAppPreviewInBackground = setting.blurAppPreviewInBackground
         self.autoPlayUgoira = setting.autoPlayUgoira

@@ -117,6 +117,18 @@ final class UserSetting: Codable {
     /// R18G 显示模式：0=正常显示 1=模糊显示 2=屏蔽 3=仅显示R18G
     var r18gDisplayMode: Int = 0
 
+    /// 是否显示 XVIII 排行榜分组
+    var showXVIIIRankingGroups: Bool = false
+
+    /// 已启用的隐藏插画排行榜分组
+    var enabledHiddenIllustRankingModes: [String] = []
+
+    /// 已启用的插画排行榜分组
+    var enabledIllustRankingModes: [String] = []
+
+    /// 插画排行榜分组顺序
+    var illustRankingModeOrder: [String] = []
+
     /// 剧透内容显示模式：0=正常显示 1=模糊显示 2=屏蔽 3=仅显示剧透
     var spoilerDisplayMode: Int = 0
 
@@ -316,6 +328,10 @@ final class UserSetting: Codable {
         case quitAfterWindowClosed
         case r18DisplayMode
         case r18gDisplayMode
+        case showXVIIIRankingGroups
+        case enabledHiddenIllustRankingModes
+        case enabledIllustRankingModes
+        case illustRankingModeOrder
         case spoilerDisplayMode
         case blurAppPreviewInBackground
         case autoPlayUgoira
@@ -406,6 +422,21 @@ final class UserSetting: Codable {
         self.quitAfterWindowClosed = try container.decodeIfPresent(Bool.self, forKey: .quitAfterWindowClosed) ?? false
         self.r18DisplayMode = try container.decodeIfPresent(Int.self, forKey: .r18DisplayMode) ?? 0
         self.r18gDisplayMode = try container.decodeIfPresent(Int.self, forKey: .r18gDisplayMode) ?? 0
+        self.showXVIIIRankingGroups = try container.decodeIfPresent(Bool.self, forKey: .showXVIIIRankingGroups) ?? false
+        let storedHiddenRankingModes = try container.decodeIfPresent([String].self, forKey: .enabledHiddenIllustRankingModes) ?? []
+        if storedHiddenRankingModes.isEmpty, self.showXVIIIRankingGroups {
+            self.enabledHiddenIllustRankingModes = ["day_r18_ai", "day_r18", "week_r18", "week_r18g"]
+        } else {
+            self.enabledHiddenIllustRankingModes = storedHiddenRankingModes
+        }
+        let storedEnabledRankingModes = try container.decodeIfPresent([String].self, forKey: .enabledIllustRankingModes) ?? []
+        self.enabledIllustRankingModes = IllustRankingMode.enabledModes(
+            from: storedEnabledRankingModes,
+            legacyHiddenRawValues: self.enabledHiddenIllustRankingModes,
+            showXVIIIRankingGroups: self.showXVIIIRankingGroups
+        ).map(\.rawValue)
+        let storedRankingModeOrder = try container.decodeIfPresent([String].self, forKey: .illustRankingModeOrder) ?? []
+        self.illustRankingModeOrder = IllustRankingMode.orderedModes(from: storedRankingModeOrder).map(\.rawValue)
         self.spoilerDisplayMode = try container.decodeIfPresent(Int.self, forKey: .spoilerDisplayMode) ?? 0
         self.blurAppPreviewInBackground = try container.decodeIfPresent(Bool.self, forKey: .blurAppPreviewInBackground) ?? false
         self.autoPlayUgoira = try container.decodeIfPresent(Bool.self, forKey: .autoPlayUgoira) ?? false
@@ -505,6 +536,10 @@ final class UserSetting: Codable {
         try container.encode(quitAfterWindowClosed, forKey: .quitAfterWindowClosed)
         try container.encode(r18DisplayMode, forKey: .r18DisplayMode)
         try container.encode(r18gDisplayMode, forKey: .r18gDisplayMode)
+        try container.encode(showXVIIIRankingGroups, forKey: .showXVIIIRankingGroups)
+        try container.encode(enabledHiddenIllustRankingModes, forKey: .enabledHiddenIllustRankingModes)
+        try container.encode(enabledIllustRankingModes, forKey: .enabledIllustRankingModes)
+        try container.encode(illustRankingModeOrder, forKey: .illustRankingModeOrder)
         try container.encode(spoilerDisplayMode, forKey: .spoilerDisplayMode)
         try container.encode(blurAppPreviewInBackground, forKey: .blurAppPreviewInBackground)
         try container.encode(autoPlayUgoira, forKey: .autoPlayUgoira)

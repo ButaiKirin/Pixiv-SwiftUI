@@ -105,6 +105,12 @@ final class UserSettingStore {
         self.blockedIllustInfos = setting.blockedIllustInfos
         self.blockedNovelInfos = setting.blockedNovelInfos
         self.isLoaded = true
+
+        do {
+            try normalizeIllustRankingModesIfNeeded()
+        } catch {
+            self.error = AppError.databaseError("无法保存插画排行榜设置: \(error)")
+        }
     }
 
     /// 保存用户设置
@@ -266,6 +272,112 @@ final class UserSettingStore {
     func setR18gDisplayMode(_ mode: Int) throws {
         userSetting.r18gDisplayMode = mode
         try saveSetting()
+    }
+
+    var orderedIllustRankingModes: [IllustRankingMode] {
+        IllustRankingMode.orderedModes(from: userSetting.illustRankingModeOrder)
+    }
+
+    var enabledIllustRankingModes: [IllustRankingMode] {
+        let enabledModeSet = Set(IllustRankingMode.enabledModes(
+            from: userSetting.enabledIllustRankingModes,
+            legacyHiddenRawValues: userSetting.enabledHiddenIllustRankingModes,
+            showXVIIIRankingGroups: userSetting.showXVIIIRankingGroups
+        ))
+        return orderedIllustRankingModes.filter { enabledModeSet.contains($0) }
+    }
+
+    var enabledHiddenIllustRankingModes: [IllustRankingMode] {
+        IllustRankingMode.enabledHiddenModes(from: enabledIllustRankingModes)
+    }
+
+    func isIllustRankingModeEnabled(_ mode: IllustRankingMode) -> Bool {
+        enabledIllustRankingModes.contains(mode)
+    }
+
+    func isHiddenIllustRankingModeEnabled(_ mode: IllustRankingMode) -> Bool {
+        enabledHiddenIllustRankingModes.contains(mode)
+    }
+
+    private func normalizeIllustRankingModesIfNeeded() throws {
+        let normalizedOrder = orderedIllustRankingModes
+        let normalizedEnabledModes = enabledIllustRankingModes
+        let normalizedHiddenModes = IllustRankingMode.enabledHiddenModes(from: normalizedEnabledModes)
+        let hasEnabledXVIIIMode = normalizedHiddenModes.contains { $0.isXVIIIMode }
+
+        let currentOrder = userSetting.illustRankingModeOrder.compactMap(IllustRankingMode.init(rawValue:))
+        let currentEnabledModes = userSetting.enabledIllustRankingModes.compactMap(IllustRankingMode.init(rawValue:))
+        let currentHiddenModes = userSetting.enabledHiddenIllustRankingModes.compactMap(IllustRankingMode.init(rawValue:))
+
+        guard
+            currentOrder != normalizedOrder
+                || currentEnabledModes != normalizedEnabledModes
+                || currentHiddenModes != normalizedHiddenModes
+                || userSetting.showXVIIIRankingGroups != hasEnabledXVIIIMode
+        else {
+            return
+        }
+
+        try persistIllustRankingModes(enabledModes: normalizedEnabledModes, orderedModes: normalizedOrder)
+    }
+
+    private func persistIllustRankingModes(
+        enabledModes: [IllustRankingMode]? = nil,
+        orderedModes: [IllustRankingMode]? = nil
+    ) throws {
+        let normalizedOrder = IllustRankingMode.orderedModes(from: (orderedModes ?? orderedIllustRankingModes).map(\.rawValue))
+        let enabledModeSet = Set(enabledModes ?? enabledIllustRankingModes)
+        var normalizedEnabledModes = normalizedOrder.filter { enabledModeSet.contains($0) }
+
+        if normalizedEnabledModes.isEmpty, let fallbackMode = normalizedOrder.first {
+            normalizedEnabledModes = [fallbackMode]
+        }
+
+        let normalizedHiddenModes = IllustRankingMode.enabledHiddenModes(from: normalizedEnabledModes)
+        userSetting.illustRankingModeOrder = normalizedOrder.map(\.rawValue)
+        userSetting.enabledIllustRankingModes = normalizedEnabledModes.map(\.rawValue)
+        userSetting.enabledHiddenIllustRankingModes = normalizedHiddenModes.map(\.rawValue)
+        userSetting.showXVIIIRankingGroups = normalizedHiddenModes.contains { $0.isXVIIIMode }
+        try saveSetting()
+    }
+
+    func setIllustRankingMode(_ mode: IllustRankingMode, enabled: Bool) throws {
+        var modes = enabledIllustRankingModes
+        if enabled {
+            if !modes.contains(mode) {
+                modes.append(mode)
+            }
+        } else {
+            guard modes.count > 1 else { return }
+            modes.removeAll { $0 == mode }
+        }
+
+        try persistIllustRankingModes(enabledModes: modes)
+    }
+
+    func setHiddenIllustRankingMode(_ mode: IllustRankingMode, enabled: Bool) throws {
+        guard mode.isHiddenByDefault else { return }
+        try setIllustRankingMode(mode, enabled: enabled)
+    }
+
+    func setShowXVIIIRankingGroups(_ enabled: Bool) throws {
+        var modes = enabledIllustRankingModes.filter { !$0.isXVIIIMode }
+        if enabled {
+            modes += orderedIllustRankingModes.filter { $0.isXVIIIMode }
+        }
+        try persistIllustRankingModes(enabledModes: modes)
+    }
+
+    func moveIllustRankingModes(fromOffsets: IndexSet, toOffset: Int) throws {
+        var orderedModes = orderedIllustRankingModes
+        let movingModes = fromOffsets.map { orderedModes[$0] }
+
+        for index in fromOffsets.sorted(by: >) {
+            orderedModes.remove(at: index)
+        }
+
+        orderedModes.insert(contentsOf: movingModes, at: min(max(toOffset, 0), orderedModes.count))
+        try persistIllustRankingModes(orderedModes: orderedModes)
     }
 
     func setSpoilerDisplayMode(_ mode: Int) throws {

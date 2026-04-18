@@ -4,13 +4,15 @@ struct IllustRankingPage: View {
     @Environment(IllustStore.self) var store
     @State private var selectedMode: IllustRankingMode = .day
     @State private var selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+    @State private var usesLatestDate = true
     @State private var isLoading = false
     @State private var error: String?
+    @State private var showProfilePanel = false
     @Environment(UserSettingStore.self) var settingStore
     @Environment(AccountStore.self) var accountStore
 
-    private var rankingTypes: [IllustRankingType] {
-        [.daily, .dailyMale, .dailyFemale, .week, .month]
+    private var rankingModes: [IllustRankingMode] {
+        settingStore.enabledIllustRankingModes
     }
 
     private var illusts: [Illusts] {
@@ -18,20 +20,7 @@ struct IllustRankingPage: View {
     }
 
     private var nextUrl: String? {
-        switch selectedMode {
-        case .day:
-            return store.nextUrlDailyRanking
-        case .dayMale:
-            return store.nextUrlDailyMaleRanking
-        case .dayFemale:
-            return store.nextUrlDailyFemaleRanking
-        case .week:
-            return store.nextUrlWeeklyRanking
-        case .month:
-            return store.nextUrlMonthlyRanking
-        case .weekOriginal, .weekRookie:
-            return nil
-        }
+        store.nextUrl(for: selectedMode)
     }
 
     private var hasMoreData: Bool {
@@ -42,12 +31,153 @@ struct IllustRankingPage: View {
         settingStore.filterIllusts(illusts)
     }
 
+    private var latestDisplayDate: Date {
+        Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+    }
+
+    private var rankingRequestDate: Date? {
+        usesLatestDate ? nil : selectedDate
+    }
+
+    private var dateSelection: Binding<Date> {
+        Binding(
+            get: { usesLatestDate ? latestDisplayDate : selectedDate },
+            set: { newValue in
+                selectedDate = newValue
+                usesLatestDate = false
+            }
+        )
+    }
+
+    private var dateFilterRow: some View {
+        HStack {
+            Text(String(localized: "日期"))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Spacer()
+            Button(String(localized: "重置")) {
+                usesLatestDate = true
+                Task {
+                    await loadRankings(forceRefresh: true)
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.subheadline)
+            .foregroundColor(usesLatestDate ? .secondary : .accentColor)
+            .disabled(usesLatestDate)
+
+            DatePicker("", selection: dateSelection, in: ...Date(), displayedComponents: .date)
+                .labelsHidden()
+                #if os(macOS)
+                .controlSize(.small)
+                #endif
+        }
+    }
+
     private var skeletonItemCount: Int {
         #if os(macOS)
         32
         #else
         12
         #endif
+    }
+
+    private func visibleItemCount(for width: CGFloat, spacing: CGFloat, containerPadding: CGFloat) -> Int {
+        let targetButtonWidth: CGFloat = 104
+        let availableWidth = max(0, width - containerPadding * 2)
+        let count = Int((availableWidth + spacing) / (targetButtonWidth + spacing))
+        return max(1, min(rankingModes.count, count))
+    }
+
+    private func syncSelectedModeIfNeeded() -> Bool {
+        guard let firstMode = rankingModes.first else {
+            return false
+        }
+
+        guard !rankingModes.contains(selectedMode) else {
+            return false
+        }
+
+        selectedMode = firstMode
+        return true
+    }
+
+    private func rankingModePicker(width: CGFloat) -> some View {
+        let spacing: CGFloat = 6
+        let containerPadding: CGFloat = 4
+        let visibleItemCount = visibleItemCount(for: width, spacing: spacing, containerPadding: containerPadding)
+        let buttonWidth = max(
+            88,
+            (width - containerPadding * 2 - spacing * CGFloat(visibleItemCount - 1)) / CGFloat(visibleItemCount)
+        )
+
+        return ScrollViewReader { reader in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(rankingModes) { mode in
+                        let isSelected = selectedMode == mode
+
+                        Button {
+                            guard selectedMode != mode else { return }
+                            selectedMode = mode
+                        } label: {
+                            Text(verbatim: mode.title)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                                .frame(width: buttonWidth)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(isSelected ? Color.primary.opacity(0.1) : .clear)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .id(mode.id)
+                    }
+                }
+            }
+            .padding(4)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
+            }
+            .onAppear {
+                reader.scrollTo(selectedMode.id, anchor: .center)
+            }
+            .onChange(of: selectedMode) { _, newValue in
+                withAnimation(.snappy(duration: 0.2)) {
+                    reader.scrollTo(newValue.id, anchor: .center)
+                }
+            }
+            .onChange(of: rankingModes.map(\.rawValue)) { _, _ in
+                withAnimation(.snappy(duration: 0.2)) {
+                    reader.scrollTo(selectedMode.id, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private func loadRankings(forceRefresh: Bool = false) async {
+        guard !rankingModes.isEmpty else {
+            isLoading = false
+            return
+        }
+
+        if syncSelectedModeIfNeeded() {
+            return
+        }
+
+        isLoading = true
+        await store.loadAllRankings(
+            date: rankingRequestDate,
+            forceRefresh: forceRefresh,
+            modes: rankingModes
+        )
+        isLoading = false
     }
 
     var body: some View {
@@ -60,25 +190,8 @@ struct IllustRankingPage: View {
             ScrollView {
                 VStack(spacing: 0) {
                     VStack(spacing: 12) {
-                        Picker(String(localized: "排行类别"), selection: $selectedMode) {
-                            ForEach(rankingTypes) { type in
-                                Text(type.title)
-                                    .tag(type.mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        HStack {
-                            Text(String(localized: "日期"))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            DatePicker("", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
-                                .labelsHidden()
-                                #if os(macOS)
-                                .controlSize(.small)
-                                #endif
-                        }
+                        rankingModePicker(width: max(proxy.size.width - 32, 0))
+                        dateFilterRow
                     }
                     .padding()
 
@@ -136,46 +249,68 @@ struct IllustRankingPage: View {
             .navigationBarTitleDisplayMode(.large)
             #endif
             .task {
-                isLoading = true
-                await store.loadAllRankings(date: selectedDate)
-                isLoading = false
+                await loadRankings()
             }
             .refreshable {
-                await store.loadAllRankings(date: selectedDate, forceRefresh: true)
+                await loadRankings(forceRefresh: true)
             }
             .toolbar {
+                #if os(iOS)
+                ToolbarItem {
+                    Button {
+                        Task {
+                            await loadRankings(forceRefresh: true)
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(isLoading)
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed)
+                }
+                ToolbarItem {
+                    ProfileButton(accountStore: accountStore, isPresented: $showProfilePanel)
+                }
+                #endif
                 #if os(macOS)
                 ToolbarItem {
-                    RefreshButton(refreshAction: { await store.loadAllRankings(date: selectedDate, forceRefresh: true) })
+                    RefreshButton(refreshAction: { await loadRankings(forceRefresh: true) })
                 }
                 #endif
             }
+            #if os(iOS)
+            .sheet(isPresented: $showProfilePanel) {
+                ProfilePanelView(accountStore: accountStore, isPresented: $showProfilePanel)
+            }
+            #endif
             .onChange(of: selectedMode) { _, _ in
-                isLoading = true
                 Task {
-                    await store.loadAllRankings(date: selectedDate)
-                    isLoading = false
+                    await loadRankings()
                 }
             }
             .onChange(of: selectedDate) { _, _ in
-                isLoading = true
                 Task {
-                    await store.loadAllRankings(date: selectedDate, forceRefresh: true)
-                    isLoading = false
+                    await loadRankings(forceRefresh: true)
                 }
             }
             .onChange(of: accountStore.currentUserId) { _, _ in
                 Task {
-                    isLoading = true
-                    await store.loadAllRankings(date: selectedDate, forceRefresh: true)
-                    isLoading = false
+                    await loadRankings(forceRefresh: true)
+                }
+            }
+            .onChange(of: settingStore.userSetting.enabledIllustRankingModes) { _, _ in
+                if syncSelectedModeIfNeeded() {
+                    return
+                }
+
+                Task {
+                    await loadRankings()
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentPage)) { _ in
                 Task {
-                    isLoading = true
-                    await store.loadAllRankings(forceRefresh: true)
-                    isLoading = false
+                    await loadRankings(forceRefresh: true)
                 }
             }
         }

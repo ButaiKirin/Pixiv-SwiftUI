@@ -12,27 +12,15 @@ final class IllustStore {
     var illusts: [Illusts] = []
     var favoriteIllusts: [Illusts] = []
 
-    var dailyRankingIllusts: [Illusts] = []
-    var dailyMaleRankingIllusts: [Illusts] = []
-    var dailyFemaleRankingIllusts: [Illusts] = []
-    var weeklyRankingIllusts: [Illusts] = []
-    var monthlyRankingIllusts: [Illusts] = []
+    var rankingIllustsByMode: [IllustRankingMode: [Illusts]] = [:]
 
     var isLoading: Bool = false
     var isLoadingRanking: Bool = false
     var error: AppError?
 
-    var nextUrlDailyRanking: String?
-    var nextUrlDailyMaleRanking: String?
-    var nextUrlDailyFemaleRanking: String?
-    var nextUrlWeeklyRanking: String?
-    var nextUrlMonthlyRanking: String?
+    var nextUrlsByRankingMode: [IllustRankingMode: String] = [:]
 
-    private var loadingNextUrlDailyRanking: String?
-    private var loadingNextUrlDailyMaleRanking: String?
-    private var loadingNextUrlDailyFemaleRanking: String?
-    private var loadingNextUrlWeeklyRanking: String?
-    private var loadingNextUrlMonthlyRanking: String?
+    private var loadingNextUrlsByRankingMode: [IllustRankingMode: String] = [:]
 
     private let dataContainer = DataContainer.shared
     private let api = PixivAPI.shared
@@ -45,32 +33,37 @@ final class IllustStore {
         return formatter
     }
 
-    func cacheKeyDailyRanking(dateString: String? = nil) -> String {
-        let key = "illust_ranking_daily"
-        if let dateString = dateString { return "\(key)_\(dateString)" }
-        return key
+    private func cacheKeyPrefix(for mode: IllustRankingMode) -> String {
+        switch mode {
+        case .day:
+            return "illust_ranking_daily"
+        case .dayMale:
+            return "illust_ranking_daily_male"
+        case .dayFemale:
+            return "illust_ranking_daily_female"
+        case .week:
+            return "illust_ranking_weekly"
+        case .month:
+            return "illust_ranking_monthly"
+        case .weekOriginal:
+            return "illust_ranking_week_original"
+        case .weekRookie:
+            return "illust_ranking_week_rookie"
+        case .dayAI:
+            return "illust_ranking_day_ai"
+        case .dayR18AI:
+            return "illust_ranking_day_r18_ai"
+        case .dayR18:
+            return "illust_ranking_day_r18"
+        case .weekR18:
+            return "illust_ranking_week_r18"
+        case .weekR18G:
+            return "illust_ranking_week_r18g"
+        }
     }
 
-    func cacheKeyDailyMaleRanking(dateString: String? = nil) -> String {
-        let key = "illust_ranking_daily_male"
-        if let dateString = dateString { return "\(key)_\(dateString)" }
-        return key
-    }
-
-    func cacheKeyDailyFemaleRanking(dateString: String? = nil) -> String {
-        let key = "illust_ranking_daily_female"
-        if let dateString = dateString { return "\(key)_\(dateString)" }
-        return key
-    }
-
-    func cacheKeyWeeklyRanking(dateString: String? = nil) -> String {
-        let key = "illust_ranking_weekly"
-        if let dateString = dateString { return "\(key)_\(dateString)" }
-        return key
-    }
-
-    func cacheKeyMonthlyRanking(dateString: String? = nil) -> String {
-        let key = "illust_ranking_monthly"
+    private func cacheKey(for mode: IllustRankingMode, dateString: String? = nil) -> String {
+        let key = cacheKeyPrefix(for: mode)
         if let dateString = dateString { return "\(key)_\(dateString)" }
         return key
     }
@@ -83,16 +76,9 @@ final class IllustStore {
     func clearMemoryCache() {
         self.illusts = []
         self.favoriteIllusts = []
-        self.dailyRankingIllusts = []
-        self.dailyMaleRankingIllusts = []
-        self.dailyFemaleRankingIllusts = []
-        self.weeklyRankingIllusts = []
-        self.monthlyRankingIllusts = []
-        self.nextUrlDailyRanking = nil
-        self.nextUrlDailyMaleRanking = nil
-        self.nextUrlDailyFemaleRanking = nil
-        self.nextUrlWeeklyRanking = nil
-        self.nextUrlMonthlyRanking = nil
+        self.rankingIllustsByMode.removeAll()
+        self.nextUrlsByRankingMode.removeAll()
+        self.loadingNextUrlsByRankingMode.removeAll()
     }
 
     // MARK: - 插画管理
@@ -363,18 +349,29 @@ final class IllustStore {
 
     // MARK: - 排行榜
 
-    func loadDailyRanking(date: Date? = nil, forceRefresh: Bool = false) async {
+    private func rankingModes(from modes: [IllustRankingMode]?) -> [IllustRankingMode] {
+        guard let modes else {
+            return IllustRankingMode.defaultVisibleModes
+        }
+
+        var seenModes = Set<IllustRankingMode>()
+        return modes.filter { seenModes.insert($0).inserted }
+    }
+
+    private func loadRanking(mode: IllustRankingMode, date: Date? = nil, forceRefresh: Bool = false) async {
         let dateString = date.map { dateFormatter.string(from: $0) }
-        let cacheKey = cacheKeyDailyRanking(dateString: dateString)
+        let cacheKey = cacheKey(for: mode, dateString: dateString)
 
         if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
-            self.dailyRankingIllusts = cached.illusts
-            self.nextUrlDailyRanking = cached.nextUrl
+            self.rankingIllustsByMode[mode] = cached.illusts
+            self.nextUrlsByRankingMode[mode] = cached.nextUrl
             return
         }
 
         guard AccountStore.shared.isLoggedIn else {
-            print("[IllustStore] Skip loading daily ranking in guest mode")
+            if mode == .day {
+                print("[IllustStore] Skip loading daily ranking in guest mode")
+            }
             return
         }
 
@@ -383,240 +380,65 @@ final class IllustStore {
         defer { isLoadingRanking = false }
 
         do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.day.rawValue, date: dateString)
-            self.dailyRankingIllusts = result.illusts
-            self.nextUrlDailyRanking = result.nextUrl
+            let result = try await api.getIllustRanking(mode: mode.rawValue, date: dateString)
+            self.rankingIllustsByMode[mode] = result.illusts
+            self.nextUrlsByRankingMode[mode] = result.nextUrl
             cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
         } catch {
-            print("Failed to load daily ranking illusts: \(error)")
+            print("Failed to load \(mode.rawValue) ranking illusts: \(error)")
         }
+    }
+
+    func loadDailyRanking(date: Date? = nil, forceRefresh: Bool = false) async {
+        await loadRanking(mode: .day, date: date, forceRefresh: forceRefresh)
     }
 
     func loadDailyMaleRanking(date: Date? = nil, forceRefresh: Bool = false) async {
-        let dateString = date.map { dateFormatter.string(from: $0) }
-        let cacheKey = cacheKeyDailyMaleRanking(dateString: dateString)
-
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
-            self.dailyMaleRankingIllusts = cached.illusts
-            self.nextUrlDailyMaleRanking = cached.nextUrl
-            return
-        }
-
-        guard AccountStore.shared.isLoggedIn else {
-            return
-        }
-
-        guard !isLoadingRanking else { return }
-        isLoadingRanking = true
-        defer { isLoadingRanking = false }
-
-        do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.dayMale.rawValue, date: dateString)
-            self.dailyMaleRankingIllusts = result.illusts
-            self.nextUrlDailyMaleRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
-        } catch {
-            print("Failed to load daily male ranking illusts: \(error)")
-        }
+        await loadRanking(mode: .dayMale, date: date, forceRefresh: forceRefresh)
     }
 
     func loadDailyFemaleRanking(date: Date? = nil, forceRefresh: Bool = false) async {
-        let dateString = date.map { dateFormatter.string(from: $0) }
-        let cacheKey = cacheKeyDailyFemaleRanking(dateString: dateString)
-
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
-            self.dailyFemaleRankingIllusts = cached.illusts
-            self.nextUrlDailyFemaleRanking = cached.nextUrl
-            return
-        }
-
-        guard AccountStore.shared.isLoggedIn else {
-            return
-        }
-
-        guard !isLoadingRanking else { return }
-        isLoadingRanking = true
-        defer { isLoadingRanking = false }
-
-        do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.dayFemale.rawValue, date: dateString)
-            self.dailyFemaleRankingIllusts = result.illusts
-            self.nextUrlDailyFemaleRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
-        } catch {
-            print("Failed to load daily female ranking illusts: \(error)")
-        }
+        await loadRanking(mode: .dayFemale, date: date, forceRefresh: forceRefresh)
     }
 
     func loadWeeklyRanking(date: Date? = nil, forceRefresh: Bool = false) async {
-        let dateString = date.map { dateFormatter.string(from: $0) }
-        let cacheKey = cacheKeyWeeklyRanking(dateString: dateString)
-
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
-            self.weeklyRankingIllusts = cached.illusts
-            self.nextUrlWeeklyRanking = cached.nextUrl
-            return
-        }
-
-        guard AccountStore.shared.isLoggedIn else {
-            return
-        }
-
-        guard !isLoadingRanking else { return }
-        isLoadingRanking = true
-        defer { isLoadingRanking = false }
-
-        do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.week.rawValue, date: dateString)
-            self.weeklyRankingIllusts = result.illusts
-            self.nextUrlWeeklyRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
-        } catch {
-            print("Failed to load weekly ranking illusts: \(error)")
-        }
+        await loadRanking(mode: .week, date: date, forceRefresh: forceRefresh)
     }
 
     func loadMonthlyRanking(date: Date? = nil, forceRefresh: Bool = false) async {
-        let dateString = date.map { dateFormatter.string(from: $0) }
-        let cacheKey = cacheKeyMonthlyRanking(dateString: dateString)
+        await loadRanking(mode: .month, date: date, forceRefresh: forceRefresh)
+    }
 
-        if !forceRefresh, let cached: IllustRankingResponse = cache.get(forKey: cacheKey) {
-            self.monthlyRankingIllusts = cached.illusts
-            self.nextUrlMonthlyRanking = cached.nextUrl
-            return
-        }
-
-        guard AccountStore.shared.isLoggedIn else {
-            return
-        }
-
-        guard !isLoadingRanking else { return }
-        isLoadingRanking = true
-        defer { isLoadingRanking = false }
-
-        do {
-            let result = try await api.getIllustRanking(mode: IllustRankingMode.month.rawValue, date: dateString)
-            self.monthlyRankingIllusts = result.illusts
-            self.nextUrlMonthlyRanking = result.nextUrl
-            cache.set(IllustRankingResponse(illusts: result.illusts, nextUrl: result.nextUrl), forKey: cacheKey, expiration: expiration)
-        } catch {
-            print("Failed to load monthly ranking illusts: \(error)")
+    func loadAllRankings(date: Date? = nil, forceRefresh: Bool = false, modes: [IllustRankingMode]? = nil) async {
+        for mode in rankingModes(from: modes) {
+            await loadRanking(mode: mode, date: date, forceRefresh: forceRefresh)
         }
     }
 
-    func loadAllRankings(date: Date? = nil, forceRefresh: Bool = false) async {
-        await loadDailyRanking(date: date, forceRefresh: forceRefresh)
-        await loadDailyMaleRanking(date: date, forceRefresh: forceRefresh)
-        await loadDailyFemaleRanking(date: date, forceRefresh: forceRefresh)
-        await loadWeeklyRanking(date: date, forceRefresh: forceRefresh)
-        await loadMonthlyRanking(date: date, forceRefresh: forceRefresh)
-    }
-
-    // swiftlint:disable cyclomatic_complexity
     func loadMoreRanking(mode: IllustRankingMode) async {
         guard AccountStore.shared.isLoggedIn else { return }
+        guard let url = nextUrlsByRankingMode[mode], !isLoadingRanking else { return }
+        guard loadingNextUrlsByRankingMode[mode] != url else { return }
 
-        var nextUrl: String?
-
-        switch mode {
-        case .day:
-            nextUrl = nextUrlDailyRanking
-        case .dayMale:
-            nextUrl = nextUrlDailyMaleRanking
-        case .dayFemale:
-            nextUrl = nextUrlDailyFemaleRanking
-        case .week:
-            nextUrl = nextUrlWeeklyRanking
-        case .month:
-            nextUrl = nextUrlMonthlyRanking
-        case .weekOriginal, .weekRookie:
-            return
-        }
-
-        guard let url = nextUrl, !isLoadingRanking else { return }
-
-        switch mode {
-        case .day:
-            if url == loadingNextUrlDailyRanking { return }
-            loadingNextUrlDailyRanking = url
-        case .dayMale:
-            if url == loadingNextUrlDailyMaleRanking { return }
-            loadingNextUrlDailyMaleRanking = url
-        case .dayFemale:
-            if url == loadingNextUrlDailyFemaleRanking { return }
-            loadingNextUrlDailyFemaleRanking = url
-        case .week:
-            if url == loadingNextUrlWeeklyRanking { return }
-            loadingNextUrlWeeklyRanking = url
-        case .month:
-            if url == loadingNextUrlMonthlyRanking { return }
-            loadingNextUrlMonthlyRanking = url
-        case .weekOriginal, .weekRookie:
-            return
-        }
-
+        loadingNextUrlsByRankingMode[mode] = url
         isLoadingRanking = true
         defer { isLoadingRanking = false }
 
         do {
             let result = try await api.getIllustRankingByURL(url)
-            switch mode {
-            case .day:
-                self.dailyRankingIllusts.append(contentsOf: result.illusts)
-                self.nextUrlDailyRanking = result.nextUrl
-                loadingNextUrlDailyRanking = nil
-            case .dayMale:
-                self.dailyMaleRankingIllusts.append(contentsOf: result.illusts)
-                self.nextUrlDailyMaleRanking = result.nextUrl
-                loadingNextUrlDailyMaleRanking = nil
-            case .dayFemale:
-                self.dailyFemaleRankingIllusts.append(contentsOf: result.illusts)
-                self.nextUrlDailyFemaleRanking = result.nextUrl
-                loadingNextUrlDailyFemaleRanking = nil
-            case .week:
-                self.weeklyRankingIllusts.append(contentsOf: result.illusts)
-                self.nextUrlWeeklyRanking = result.nextUrl
-                loadingNextUrlWeeklyRanking = nil
-            case .month:
-                self.monthlyRankingIllusts.append(contentsOf: result.illusts)
-                self.nextUrlMonthlyRanking = result.nextUrl
-                loadingNextUrlMonthlyRanking = nil
-            case .weekOriginal, .weekRookie:
-                break
-            }
+            self.rankingIllustsByMode[mode, default: []].append(contentsOf: result.illusts)
+            self.nextUrlsByRankingMode[mode] = result.nextUrl
+            loadingNextUrlsByRankingMode[mode] = nil
         } catch {
-            switch mode {
-            case .day:
-                loadingNextUrlDailyRanking = nil
-            case .dayMale:
-                loadingNextUrlDailyMaleRanking = nil
-            case .dayFemale:
-                loadingNextUrlDailyFemaleRanking = nil
-            case .week:
-                loadingNextUrlWeeklyRanking = nil
-            case .month:
-                loadingNextUrlMonthlyRanking = nil
-            case .weekOriginal, .weekRookie:
-                break
-            }
+            loadingNextUrlsByRankingMode[mode] = nil
         }
     }
-    // swiftlint:enable cyclomatic_complexity
+
+    func nextUrl(for mode: IllustRankingMode) -> String? {
+        nextUrlsByRankingMode[mode]
+    }
 
     func illusts(for mode: IllustRankingMode) -> [Illusts] {
-        switch mode {
-        case .day:
-            return dailyRankingIllusts
-        case .dayMale:
-            return dailyMaleRankingIllusts
-        case .dayFemale:
-            return dailyFemaleRankingIllusts
-        case .week:
-            return weeklyRankingIllusts
-        case .month:
-            return monthlyRankingIllusts
-        case .weekOriginal, .weekRookie:
-            return []
-        }
+        rankingIllustsByMode[mode] ?? []
     }
 }

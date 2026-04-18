@@ -182,6 +182,27 @@ final class WebDAVSyncService {
         setting.aiDisplayMode = payload.aiDisplayMode
         setting.r18DisplayMode = payload.r18DisplayMode
         setting.r18gDisplayMode = payload.r18gDisplayMode
+        setting.showXVIIIRankingGroups = payload.showXVIIIRankingGroups ?? false
+        if let enabledHiddenIllustRankingModes = payload.enabledHiddenIllustRankingModes {
+            setting.enabledHiddenIllustRankingModes = enabledHiddenIllustRankingModes
+            setting.showXVIIIRankingGroups = enabledHiddenIllustRankingModes.contains { value in
+                IllustRankingMode.xviiiModes.contains { $0.rawValue == value }
+            }
+        } else if setting.showXVIIIRankingGroups {
+            setting.enabledHiddenIllustRankingModes = IllustRankingMode.xviiiModes.map(\.rawValue)
+        } else {
+            setting.enabledHiddenIllustRankingModes = []
+        }
+        let enabledRankingModes = IllustRankingMode.enabledModes(
+            from: payload.enabledIllustRankingModes ?? [],
+            legacyHiddenRawValues: setting.enabledHiddenIllustRankingModes,
+            showXVIIIRankingGroups: setting.showXVIIIRankingGroups
+        )
+        setting.enabledIllustRankingModes = enabledRankingModes.map(\.rawValue)
+        setting.enabledHiddenIllustRankingModes = IllustRankingMode.enabledHiddenModes(from: enabledRankingModes).map(\.rawValue)
+        setting.showXVIIIRankingGroups = enabledRankingModes.contains { $0.isXVIIIMode }
+        setting.illustRankingModeOrder = payload.illustRankingModeOrder
+            ?? IllustRankingMode.allModes.map(\.rawValue)
         setting.spoilerDisplayMode = payload.spoilerDisplayMode
         setting.blurAppPreviewInBackground = payload.blurAppPreviewInBackground ?? false
         setting.autoPlayUgoira = payload.autoPlayUgoira
