@@ -44,6 +44,13 @@ struct ProgressiveCachedAsyncImage: View {
         }
         .aspectRatio(aspectRatio, contentMode: contentMode)
         .clipped()
+        .onChange(of: targetURL) { _, newURL in
+            guard newURL != displayedURL else { return }
+            targetLoaded = false
+            isLoadingTarget = false
+            displayedURL = nil
+            loadBestAvailableImage()
+        }
     }
 
     @ViewBuilder

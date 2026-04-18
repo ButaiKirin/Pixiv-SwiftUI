@@ -50,6 +50,7 @@ struct IllustDetailView: View {
     @State private var isDeleting = false
     @State private var showDeleteSuccessToast = false
     @State private var showDeleteErrorToast = false
+    @State private var detailFetched = false
 
     private var screenWidth: CGFloat {
         #if os(iOS)
@@ -94,6 +95,10 @@ struct IllustDetailView: View {
 
     private var isOwnIllust: Bool {
         illust.user.id.stringValue == accountStore.currentUserId
+    }
+
+    private var detailImageQuality: Int {
+        isManga ? userSettingStore.userSetting.mangaQuality : userSettingStore.userSetting.pictureQuality
     }
 
     private var zoomImageURLs: [String] {
@@ -400,9 +405,7 @@ struct IllustDetailView: View {
                 }
             }
             .onAppear {
-                print("[IllustDetailView] Appeared with illust id=\(illust.id)")
-                preloadAllImages()
-                fetchTotalCommentsIfNeeded()
+                fetchDetailIfNeeded()
                 Task {
                     try? illustStore.recordGlance(illust.id, illust: illust)
                 }
@@ -506,14 +509,13 @@ struct IllustDetailView: View {
 
         Task {
             await withTaskGroup(of: Void.self) { group in
-                let quality = userSettingStore.userSetting.pictureQuality
                 let urls: [String]
                 if !illust.metaPages.isEmpty {
                     urls = illust.metaPages.indices.compactMap { index in
-                        ImageURLHelper.getPageImageURL(from: illust, page: index, quality: quality)
+                        ImageURLHelper.getPageImageURL(from: illust, page: index, quality: detailImageQuality)
                     }
                 } else {
-                    urls = [ImageURLHelper.getImageURL(from: illust, quality: quality)]
+                    urls = [ImageURLHelper.getImageURL(from: illust, quality: detailImageQuality)]
                 }
 
                 for urlString in urls {
@@ -706,23 +708,48 @@ struct IllustDetailView: View {
     }
     #endif
 
-    private func fetchTotalCommentsIfNeeded() {
-        guard totalComments == nil else { return }
+    /// 从 API 获取完整详情，更新 illust 的 metaPages/metaSinglePage 等数据
+    /// Pixiv 列表接口返回的数据可能不完整（如 caption 为空、metaPages 缺少 original URL），
+    /// 需要像 Pixez 一样始终调用 /v1/illust/detail 获取完整数据
+    private func fetchDetailIfNeeded() {
+        guard !detailFetched else { return }
+        detailFetched = true
 
+        // 先从缓存取 totalComments
         let cacheKey = CacheManager.illustDetailKey(illustId: illust.id)
         if let cached: Illusts = cache.get(forKey: cacheKey), let comments = cached.totalComments, comments > 0 {
             totalComments = comments
-            return
         }
+
+        // 先用当前数据预加载
+        preloadAllImages()
 
         Task {
             do {
                 let detail = try await PixivAPI.shared.getIllustDetail(illustId: illust.id)
                 await MainActor.run {
-                    self.totalComments = detail.totalComments
+                    if let comments = detail.totalComments {
+                        self.totalComments = comments
+                    }
+                    // 用详情接口的完整数据更新 illust
+                    if !detail.metaPages.isEmpty {
+                        illust.metaPages = detail.metaPages
+                    }
+                    if let singlePage = detail.metaSinglePage {
+                        illust.metaSinglePage = singlePage
+                    }
+                    if !detail.imageUrls.large.isEmpty {
+                        illust.imageUrls = detail.imageUrls
+                    }
+                    if illust.caption.isEmpty, !detail.caption.isEmpty {
+                        illust.caption = detail.caption
+                    }
+
+                    // 数据更新后重新预加载正确质量的图片
+                    preloadAllImages()
                 }
             } catch {
-                print("Failed to fetch totalComments: \(error)")
+                print("[fetchDetail] FAILED: \(error)")
             }
         }
     }

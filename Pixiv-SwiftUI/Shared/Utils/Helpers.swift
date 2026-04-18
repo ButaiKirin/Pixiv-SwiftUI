@@ -178,56 +178,58 @@ public struct DynamicSizeCachedAsyncImage: View {
 
 /// 图片 URL 工具函数
 struct ImageURLHelper {
-    /// 根据质量设置获取图片 URL
+    /// 根据质量设置获取封面图片 URL（用于列表卡片和单页详情）
     static func getImageURL(
         from illusts: Illusts,
         quality: Int,
         isPicture: Bool = true
     ) -> String {
-        let targetQuality = isPicture ? illusts.imageUrls.medium : illusts.imageUrls.large
-
         switch quality {
         case 0:  // 中等
-            return illusts.imageUrls.medium
+            return illusts.imageUrls.medium.isEmpty
+                ? illusts.imageUrls.large
+                : illusts.imageUrls.medium
         case 1:  // 大
-            return illusts.imageUrls.large
+            return illusts.imageUrls.large.isEmpty
+                ? illusts.imageUrls.medium
+                : illusts.imageUrls.large
         case 2:  // 原始
-            // 对于单页图片，使用 metaSinglePage；对于多页，使用 metaPages 第一页
-            if let originalUrl = illusts.metaSinglePage?.originalImageUrl {
-                return originalUrl
+            if let url = illusts.metaSinglePage?.originalImageUrl, !url.isEmpty {
+                return url
             }
-            return illusts.metaPages.first?.imageUrls?.original ?? targetQuality
+            if let url = illusts.metaPages.first?.imageUrls?.original, !url.isEmpty {
+                return url
+            }
+            return illusts.imageUrls.large.isEmpty
+                ? illusts.imageUrls.medium
+                : illusts.imageUrls.large
         default:
-            return targetQuality
+            return illusts.imageUrls.medium.isEmpty
+                ? illusts.imageUrls.large
+                : illusts.imageUrls.medium
         }
     }
 
-    /// 获取特定页面的图片 URL
+    /// 获取特定页面的图片 URL（用于多页详情）
     static func getPageImageURL(
         from illusts: Illusts,
         page: Int,
         quality: Int
     ) -> String? {
         guard page >= 0 && page < illusts.metaPages.count else { return nil }
-
-        let metaPage = illusts.metaPages[page]
-        guard let urls = metaPage.imageUrls else { return nil }
+        guard let urls = illusts.metaPages[page].imageUrls else { return nil }
 
         switch quality {
-        case 0:  // 中等
-            return urls.medium
-        case 1:  // 大
-            return urls.large
-        case 2:  // 原始
-            return urls.original
+        case 0:
+            return urls.medium.isEmpty ? urls.large : urls.medium
+        case 1:
+            return urls.large.isEmpty ? urls.medium : urls.large
+        case 2:
+            if !urls.original.isEmpty { return urls.original }
+            return urls.large.isEmpty ? urls.medium : urls.large
         default:
-            return urls.medium
+            return urls.medium.isEmpty ? urls.large : urls.medium
         }
-    }
-
-    /// 修改图片 URL 以绕过防盗链（需要正确的 Referer）
-    static func addRefererHeader(url: String) -> (url: String, referer: String) {
-        return (url: url, referer: "https://www.pixiv.net/")
     }
 }
 

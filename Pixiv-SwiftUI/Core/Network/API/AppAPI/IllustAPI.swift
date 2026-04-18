@@ -154,6 +154,7 @@ final class IllustAPI {
     func getIllustDetail(illustId: Int) async throws -> Illusts {
         var components = URLComponents(string: APIEndpoint.baseURL + APIEndpoint.illustDetail)
         components?.queryItems = [
+            URLQueryItem(name: "filter", value: "for_android"),
             URLQueryItem(name: "illust_id", value: String(illustId))
         ]
 
