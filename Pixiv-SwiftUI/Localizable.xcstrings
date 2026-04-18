@@ -1173,6 +1173,16 @@
         }
       }
     },
+    "中等画质节省流量，大图画质更清晰，原图画质最高清（可能消耗更多流量）。开启默认私密收藏后，收藏作品时将默认为非公开状态。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium saves data, Large is clearer, and Original is the highest quality but may use more data. When Default Private Bookmark is enabled, bookmarked works are private by default."
+          }
+        }
+      }
+    },
     "为你推荐的标签" : {
       "localizations" : {
         "en" : {

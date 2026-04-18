@@ -518,6 +518,9 @@ struct BrowseHistoryCard: View {
     private func toggleBookmark() {
         let wasBookmarked = isBookmarked
         let illustId = illust.id
+        let defaultIsPrivate = userSettingStore.userSetting.defaultPrivateLike
+        let originalBookmarkRestrict = illust.bookmarkRestrict
+        let originalTotalBookmarks = illust.totalBookmarks
 
         isBookmarked.toggle()
         if wasBookmarked {
@@ -525,7 +528,7 @@ struct BrowseHistoryCard: View {
             illust.bookmarkRestrict = nil
         } else {
             illust.totalBookmarks += 1
-            illust.bookmarkRestrict = "public"
+            illust.bookmarkRestrict = defaultIsPrivate ? "private" : "public"
         }
 
         Task {
@@ -533,18 +536,13 @@ struct BrowseHistoryCard: View {
                 if wasBookmarked {
                     try await PixivAPI.shared.deleteBookmark(illustId: illustId)
                 } else {
-                    try await PixivAPI.shared.addBookmark(illustId: illustId, isPrivate: false)
+                    try await PixivAPI.shared.addBookmark(illustId: illustId, isPrivate: defaultIsPrivate)
                 }
             } catch {
                 await MainActor.run {
                     isBookmarked = wasBookmarked
-                    if wasBookmarked {
-                        illust.totalBookmarks += 1
-                        illust.bookmarkRestrict = "public"
-                    } else {
-                        illust.totalBookmarks -= 1
-                        illust.bookmarkRestrict = nil
-                    }
+                    illust.totalBookmarks = originalTotalBookmarks
+                    illust.bookmarkRestrict = originalBookmarkRestrict
                 }
             }
         }

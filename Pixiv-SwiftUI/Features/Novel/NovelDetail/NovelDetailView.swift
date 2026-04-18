@@ -244,7 +244,7 @@ struct NovelDetailView: View {
                             if isBookmarked {
                                 toggleBookmark(forceUnbookmark: true)
                             } else {
-                                toggleBookmark(isPrivate: false)
+                                toggleBookmark(isPrivate: userSettingStore.userSetting.defaultPrivateLike)
                             }
                         }) {
                             Label(

@@ -251,7 +251,7 @@ struct IllustDetailInfoSection: View {
                 if isBookmarked {
                     bookmarkIllust(forceUnbookmark: true)
                 } else {
-                    bookmarkIllust(isPrivate: false)
+                    bookmarkIllust(isPrivate: userSettingStore.userSetting.defaultPrivateLike)
                 }
             }) {
                 HStack {

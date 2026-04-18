@@ -215,10 +215,12 @@ final class NovelStore {
     func toggleBookmark(_ novel: Novel) async {
         let wasBookmarked = novel.isBookmarked
         let novelId = novel.id
+        let defaultRestrict = UserSettingStore.shared.userSetting.defaultPrivateLike ? "private" : "public"
 
         var updatedNovel = novel
         updatedNovel.isBookmarked = !wasBookmarked
         updatedNovel.totalBookmarks = wasBookmarked ? novel.totalBookmarks - 1 : novel.totalBookmarks + 1
+        updatedNovel.bookmarkRestrict = wasBookmarked ? nil : defaultRestrict
 
         updateNovelInLists(updatedNovel)
 
@@ -226,13 +228,14 @@ final class NovelStore {
             if wasBookmarked {
                 try await PixivAPI.shared.novelAPI?.unbookmarkNovel(novelId: novelId)
             } else {
-                try await PixivAPI.shared.novelAPI?.bookmarkNovel(novelId: novelId)
+                try await PixivAPI.shared.novelAPI?.bookmarkNovel(novelId: novelId, restrict: defaultRestrict)
             }
         } catch {
             await MainActor.run {
                 var rollbackNovel = novel
                 rollbackNovel.isBookmarked = wasBookmarked
-                rollbackNovel.totalBookmarks = wasBookmarked ? novel.totalBookmarks + 1 : novel.totalBookmarks - 1
+                rollbackNovel.totalBookmarks = novel.totalBookmarks
+                rollbackNovel.bookmarkRestrict = novel.bookmarkRestrict
                 updateNovelInLists(rollbackNovel)
             }
         }

@@ -722,11 +722,13 @@ private func performTranslation(text: String, serviceId: String, targetLanguage:
     }
 
     func toggleBookmark() async {
+        let defaultRestrict = UserSettingStore.shared.userSetting.defaultPrivateLike ? "private" : "public"
+
         do {
             if isBookmarked {
                 try await PixivAPI.shared.novelAPI?.unbookmarkNovel(novelId: novelId)
             } else {
-                try await PixivAPI.shared.novelAPI?.bookmarkNovel(novelId: novelId)
+                try await PixivAPI.shared.novelAPI?.bookmarkNovel(novelId: novelId, restrict: defaultRestrict)
             }
             isBookmarked.toggle()
         } catch {

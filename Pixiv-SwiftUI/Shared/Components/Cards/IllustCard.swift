@@ -168,7 +168,13 @@ struct IllustCard: View {
 
                 Spacer()
 
-                Button { toggleBookmark() } label: {
+                Button {
+                    if isBookmarked {
+                        toggleBookmark(forceUnbookmark: true)
+                    } else {
+                        toggleBookmark(isPrivate: userSettingStore.userSetting.defaultPrivateLike)
+                    }
+                } label: {
                     Image(systemName: bookmarkIconName)
                         .foregroundColor(isBookmarked ? themeManager.currentColor : .secondary)
                         .font(.system(size: 20))
@@ -273,6 +279,8 @@ struct IllustCard: View {
     private func toggleBookmark(isPrivate: Bool = false, forceUnbookmark: Bool = false) {
         let wasBookmarked = isBookmarked
         let illustId = illust.id
+        let originalTotalBookmarks = illust.totalBookmarks
+        let originalBookmarkRestrict = illust.bookmarkRestrict
 
         if forceUnbookmark && wasBookmarked {
             isBookmarked = false
@@ -341,17 +349,9 @@ struct IllustCard: View {
                 }
             } catch {
                 await MainActor.run {
-                    if forceUnbookmark && wasBookmarked {
-                        isBookmarked = true
-                        illust.totalBookmarks += 1
-                        illust.bookmarkRestrict = "public"
-                    } else if wasBookmarked {
-                        illust.bookmarkRestrict = wasBookmarked ? "public" : nil
-                    } else {
-                        isBookmarked = false
-                        illust.totalBookmarks -= 1
-                        illust.bookmarkRestrict = nil
-                    }
+                    isBookmarked = wasBookmarked
+                    illust.totalBookmarks = originalTotalBookmarks
+                    illust.bookmarkRestrict = originalBookmarkRestrict
                 }
             }
         }

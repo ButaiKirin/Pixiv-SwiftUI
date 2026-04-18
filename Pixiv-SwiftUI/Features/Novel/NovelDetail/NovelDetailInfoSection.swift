@@ -29,6 +29,26 @@ struct NovelDetailInfoSection: View {
         isBookmarked ? "heart.fill" : "heart"
     }
 
+    private var defaultBookmarkIsPrivate: Bool {
+        userSettingStore.userSetting.defaultPrivateLike
+    }
+
+    private var defaultBookmarkTitle: String {
+        defaultBookmarkIsPrivate ? String(localized: "私密收藏") : String(localized: "公开收藏")
+    }
+
+    private var defaultBookmarkIconName: String {
+        defaultBookmarkIsPrivate ? "heart.slash" : "heart"
+    }
+
+    private var alternateBookmarkTitle: String {
+        defaultBookmarkIsPrivate ? String(localized: "公开收藏") : String(localized: "私密收藏")
+    }
+
+    private var alternateBookmarkIconName: String {
+        defaultBookmarkIsPrivate ? "heart" : "heart.slash"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             titleSection
@@ -161,7 +181,7 @@ struct NovelDetailInfoSection: View {
                 if isBookmarked {
                     toggleBookmark(forceUnbookmark: true)
                 } else {
-                    toggleBookmark(isPrivate: userSettingStore.userSetting.defaultPrivateLike)
+                    toggleBookmark(isPrivate: defaultBookmarkIsPrivate)
                 }
             }) {
                 HStack {
@@ -192,11 +212,11 @@ struct NovelDetailInfoSection: View {
                         Label(String(localized: "取消收藏"), systemImage: "heart.slash")
                     }
                 } else {
-                    Button(action: { toggleBookmark(isPrivate: userSettingStore.userSetting.defaultPrivateLike) }) {
-                        Label(String(localized: "公开收藏"), systemImage: "heart")
+                    Button(action: { toggleBookmark(isPrivate: defaultBookmarkIsPrivate) }) {
+                        Label(defaultBookmarkTitle, systemImage: defaultBookmarkIconName)
                     }
-                    Button(action: { toggleBookmark(isPrivate: !userSettingStore.userSetting.defaultPrivateLike) }) {
-                        Label(String(localized: "私密收藏"), systemImage: "heart.slash")
+                    Button(action: { toggleBookmark(isPrivate: !defaultBookmarkIsPrivate) }) {
+                        Label(alternateBookmarkTitle, systemImage: alternateBookmarkIconName)
                     }
                 }
             }
